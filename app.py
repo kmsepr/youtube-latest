@@ -7,18 +7,16 @@ app = Flask(__name__)
 YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLWzDl-O4zlwSDM6PAMsGgFNCPsvQk-2aN"
 
 def generate_audio():
-    """Fetches YouTube playlist audio and streams it as MP3 (40 kbps)."""
-    command_yt = [
-        "yt-dlp", "-f", "249", "-o", "-", YOUTUBE_PLAYLIST
+    command = [
+        "yt-dlp", "-f", "bestaudio", "-o", "-", YOUTUBE_PLAYLIST
     ]
 
-    process_yt = subprocess.Popen(command_yt, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process_yt = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-    command_ffmpeg = [
-        "ffmpeg", "-i", "-", "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1", "-f", "mp3", "-"
-    ]
-
-    process_ffmpeg = subprocess.Popen(command_ffmpeg, stdin=process_yt.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process_ffmpeg = subprocess.Popen(
+        ["ffmpeg", "-i", "pipe:0", "-acodec", "libmp3lame", "-b:a", "40k", "-f", "mp3", "-"],
+        stdin=process_yt.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+    )
 
     try:
         for chunk in iter(lambda: process_ffmpeg.stdout.read(1024), b""):
