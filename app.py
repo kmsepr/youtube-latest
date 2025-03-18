@@ -15,8 +15,8 @@ YOUTUBE_STREAMS = {
 
 # 🎵 List of YouTube Playlists
 PLAYLISTS = {
-    "the_other_side": "https://youtube.com/playlist?list=PLQ02IYL5pmhEw1lGauK0-NKXqcCDlWtq7&si=EC2HaBoW3kOUpn_a",  
-    "quran_recitation": "https://www.youtube.com/playlist?list=PL987654321FEDCBA"  
+    "yaqeen_latest": "https://youtube.com/playlist?list=PLQ02IYL5pmhEw1lGauK0-NKXqcCDlWtq7&si=EC2HaBoW3kOUpn_a",  
+    "zaytuna_latest": "https://youtube.com/playlist?list=PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck&si=y6r3yix4TQD2OCuJ"  
 }
 
 # 🌍 Store the latest audio stream URLs
