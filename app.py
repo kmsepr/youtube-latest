@@ -3,50 +3,60 @@ import subprocess
 
 app = Flask(__name__)
 
-YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLWzDl-O4zlwSDM6PAMsGgFNCPsvQk-2aN"
-COOKIES_PATH = "/mnt/data/cookies.txt"  # Ensure your cookies.txt file is uploaded here
+# Define unique paths for each playlist
+PLAYLISTS = {
+    "playlist1": "https://www.youtube.com/playlist?list=PLWzDl-O4zlwSDM6PAMsGgFNCPsvQk-2aN",
+    "playlist2": "https://youtube.com/playlist?list=PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck",
+}
 
-def generate_audio():
-    yt_dlp_cmd = [
+COOKIES_PATH = "/mnt/data/cookies.txt"
+
+def generate_audio(playlist_url):
+    command = [
         "yt-dlp",
         "--cookies", COOKIES_PATH,
         "--force-generic-extractor",
         "-f", "bestaudio",
         "-o", "-",
-        YOUTUBE_PLAYLIST
+        playlist_url
     ]
-    
-    process_yt = subprocess.Popen(yt_dlp_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-    ffmpeg_cmd = [
+    ffmpeg_command = [
         "ffmpeg",
         "-i", "pipe:0",
         "-acodec", "libmp3lame",
-        "-b:a", "64k",  # 64 kbps bitrate
+        "-b:a", "64k",  # Set bitrate to 64kbps
         "-f", "mp3",
         "pipe:1"
     ]
-
-    process_ffmpeg = subprocess.Popen(ffmpeg_cmd, stdin=process_yt.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-    
-    process_yt.stdout.close()  # Allow yt-dlp to close when FFmpeg stops
+    ffmpeg_process = subprocess.Popen(ffmpeg_command, stdin=process.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     while True:
-        chunk = process_ffmpeg.stdout.read(1024)
+        chunk = ffmpeg_process.stdout.read(1024)
         if not chunk:
             break
         yield chunk
 
-    process_ffmpeg.terminate()
-    process_yt.terminate()
+    process.terminate()
+    ffmpeg_process.terminate()
 
-@app.route('/stream')
-def stream():
-    return Response(generate_audio(), mimetype='audio/mpeg')
+# Dynamic URL for each playlist
+@app.route('/stream/<playlist_name>')
+def stream(playlist_name):
+    playlist_url = PLAYLISTS.get(playlist_name)
+    
+    if not playlist_url:
+        return jsonify({"error": "Invalid playlist name"}), 404
+
+    return Response(generate_audio(playlist_url), mimetype='audio/mpeg')
 
 @app.route('/')
 def home():
-    return jsonify({"message": "Go to /stream to listen to the radio stream"})
+    return jsonify({
+        "message": "Use the following unique links to stream playlists:",
+        "stream_links": {name: f"/stream/{name}" for name in PLAYLISTS.keys()}
+    })
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, threaded=True)
