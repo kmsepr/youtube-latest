@@ -1,82 +1,154 @@
-from flask import Flask, Response, jsonify
 import subprocess
-import logging
+import time
+import threading
+from flask import Flask, Response
 
 app = Flask(__name__)
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
-
-# Dictionary of YouTube playlists
-PLAYLISTS = {
-    "playlist1": "https://www.youtube.com/playlist?list=PLWzDl-O4zlwSDM6PAMsGgFNCPsvQk-2aN",
-    "playlist2": "https://youtube.com/playlist?list=PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck",
+# 📡 List of YouTube Live Streams
+YOUTUBE_STREAMS = {
+    "media_one": "https://www.youtube.com/@MediaoneTVLive/live",
+    "shajahan_rahmani": "https://www.youtube.com/@ShajahanRahmaniOfficial/live",
+    "aljazeera_arabic": "https://www.youtube.com/@aljazeera/live",
+    "aljazeera_english": "https://www.youtube.com/@AlJazeeraEnglish/live"
 }
 
-def generate_audio(playlist_url):
-    logging.info(f"Starting stream for {playlist_url}")
+# 🎵 List of YouTube Playlists
+PLAYLISTS = {
+    "nasheeds": "https://www.youtube.com/playlist?list=PL123456789ABCDEF",  
+    "quran_recitation": "https://www.youtube.com/playlist?list=PL987654321FEDCBA"  
+}
 
-    # Run yt-dlp to get the best audio URL
+# 🌍 Store the latest audio stream URLs
+stream_cache = {}
+cache_lock = threading.Lock()
+
+def get_audio_url(youtube_url, is_playlist=False):
+    """Fetch the latest direct audio URL from YouTube (Live or Playlist)."""
     command = [
         "yt-dlp",
         "--force-generic-extractor",
-        "-f", "91",
-        "-o", "-",
-        playlist_url
+        "-f", "bestaudio",
+        "-g", youtube_url
     ]
-    logging.debug(f"yt-dlp command: {' '.join(command)}")
-
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    # Run ffmpeg to encode the audio
-    ffmpeg_command = [
-        "ffmpeg",
-        "-i", "pipe:0",
-        "-acodec", "libmp3lame",
-        "-b:a", "64k",
-        "-f", "mp3",
-        "pipe:1"
-    ]
-    logging.debug(f"ffmpeg command: {' '.join(ffmpeg_command)}")
-
-    ffmpeg_process = subprocess.Popen(ffmpeg_command, stdin=process.stdout, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-
-    # Read stderr logs from yt-dlp and ffmpeg
-    for stderr_line in process.stderr:
-        logging.error(f"yt-dlp error: {stderr_line.decode().strip()}")
-
-    for stderr_line in ffmpeg_process.stderr:
-        logging.error(f"ffmpeg error: {stderr_line.decode().strip()}")
-
+    
     try:
-        while True:
-            chunk = ffmpeg_process.stdout.read(1024)
-            if not chunk:
-                break
-            yield chunk
-    except GeneratorExit:
-        logging.info("Client disconnected, terminating processes.")
-        process.terminate()
-        ffmpeg_process.terminate()
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        audio_urls = result.stdout.strip().split("\n")  # Get multiple URLs
 
-@app.route('/stream/<playlist_key>')
-def stream(playlist_key):
-    playlist_url = PLAYLISTS.get(playlist_key)
+        if audio_urls:
+            print(f"✅ Fetched URL: {audio_urls[0]}")
+            return audio_urls[0]  # Return first audio track (for playlists)
+        else:
+            print(f"❌ No playable audio found for {youtube_url}")
+            return None
+
+    except subprocess.CalledProcessError as e:
+        print(f"⚠️ Error fetching audio URL: {e}")
+        return None
+
+def refresh_stream_url():
+    """Refresh YouTube stream URLs every 30 minutes to avoid expiration."""
+    while True:
+        with cache_lock:
+            for station, url in YOUTUBE_STREAMS.items():
+                new_url = get_audio_url(url)
+                if new_url:
+                    stream_cache[station] = new_url
+        time.sleep(1800)  # Refresh every 30 minutes
+
+def generate_stream(station_name):
+    """Streams audio from a YouTube Live stream."""
+    while True:
+        with cache_lock:
+            stream_url = stream_cache.get(station_name)
+
+        if not stream_url:
+            print(f"⚠️ No valid stream URL for {station_name}, fetching a new one...")
+            with cache_lock:
+                youtube_url = YOUTUBE_STREAMS.get(station_name)
+                if youtube_url:
+                    stream_url = get_audio_url(youtube_url)
+                    if stream_url:
+                        stream_cache[station_name] = stream_url
+
+        if not stream_url:
+            print(f"❌ Failed to fetch stream URL for {station_name}, retrying in 30s...")
+            time.sleep(30)
+            continue  # Retry fetching
+
+        print(f"🎵 Streaming from: {stream_url}")
+
+        process = subprocess.Popen(
+            ["ffmpeg", "-re", "-i", stream_url,
+             "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1",
+             "-f", "mp3", "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
+        )
+
+        try:
+            for chunk in iter(lambda: process.stdout.read(8192), b""):
+                yield chunk
+        except GeneratorExit:
+            process.kill()
+            break
+        except Exception as e:
+            print(f"⚠️ Stream error: {e}")
+
+        print("🔄 FFmpeg stopped, retrying in 5s...")
+        process.kill()
+        time.sleep(5)
+
+def generate_playlist_stream(playlist_url):
+    """Streams audio from a YouTube playlist, switching to the next track automatically."""
+    while True:
+        audio_url = get_audio_url(playlist_url, is_playlist=True)
+
+        if not audio_url:
+            print("⚠️ No valid stream URL, retrying in 30 seconds...")
+            time.sleep(30)
+            continue
+
+        print(f"🎵 Streaming from: {audio_url}")
+
+        process = subprocess.Popen(
+            ["ffmpeg", "-re", "-i", audio_url,
+             "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1",
+             "-f", "mp3", "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
+        )
+
+        try:
+            for chunk in iter(lambda: process.stdout.read(8192), b""):
+                yield chunk
+        except GeneratorExit:
+            process.kill()
+            break
+        except Exception as e:
+            print(f"⚠️ Stream error: {e}")
+
+        print("🔄 FFmpeg stopped, retrying with next track...")
+        process.kill()
+        time.sleep(5)  # Wait before retrying
+
+@app.route("/play/<station_name>")
+def stream(station_name):
+    if station_name not in YOUTUBE_STREAMS:
+        return "⚠️ Station not found", 404
+
+    return Response(generate_stream(station_name), mimetype="audio/mpeg")
+
+@app.route("/play_playlist/<playlist_id>")
+def play_playlist(playlist_id):
+    playlist_url = PLAYLISTS.get(playlist_id)
 
     if not playlist_url:
-        logging.warning(f"Invalid playlist key: {playlist_key}")
-        return jsonify({"error": "Invalid playlist key. Available playlists: " + ", ".join(PLAYLISTS.keys())}), 400
+        return "⚠️ Playlist not found", 404
 
-    logging.info(f"Streaming playlist: {playlist_key} - {playlist_url}")
-    return Response(generate_audio(playlist_url), mimetype='audio/mpeg')
+    return Response(generate_playlist_stream(playlist_url), mimetype="audio/mpeg")
 
-@app.route('/')
-def home():
-    return jsonify({
-        "message": "Use /stream/playlist1 or /stream/playlist2 to listen to a specific playlist",
-        "available_playlists": list(PLAYLISTS.keys())
-    })
+# 🚀 Start the URL refresher thread
+threading.Thread(target=refresh_stream_url, daemon=True).start()
 
-if __name__ == '__main__':
-    logging.info("Starting Flask app on port 5000...")
-    app.run(host='0.0.0.0', port=5000, threaded=True)
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=8000, debug=True)
