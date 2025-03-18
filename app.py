@@ -2,76 +2,87 @@ from flask import Flask, Response, jsonify
 import subprocess
 import os
 import threading
+import random
+import time
 
 app = Flask(__name__)
 
 YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLWzDl-O4zlwSDM6PAMsGgFNCPsvQk-2aN"
 COOKIES_FILE = "/mnt/data/cookies.txt"
 cache_lock = threading.Lock()
-latest_video_url = None
-latest_audio_url = None
+video_urls = []
+current_index = 0
 
-# Function to get the latest video from the playlist
-def get_latest_video():
-    global latest_video_url
-
+def fetch_playlist_videos():
+    """Fetch all video URLs from the playlist and shuffle them."""
+    global video_urls
     try:
         command = ["yt-dlp", "--flat-playlist", "-i", "--print", "%(url)s", YOUTUBE_PLAYLIST]
         result = subprocess.run(command, capture_output=True, text=True, check=True)
+        new_video_urls = result.stdout.strip().split("\n")
 
-        video_urls = result.stdout.strip().split("\n")
-        if video_urls:
-            latest_video_url = video_urls[0]  # The first one is the latest
-            print(f"✅ Latest video URL: {latest_video_url}")
+        if new_video_urls:
+            random.shuffle(new_video_urls)  # Shuffle the list
+            with cache_lock:
+                video_urls = new_video_urls
+                print(f"✅ Fetched & shuffled {len(video_urls)} videos.")
         else:
             print("⚠️ No videos found in the playlist.")
+
     except subprocess.CalledProcessError as e:
-        print(f"⚠️ Error getting latest video: {e}")
-        latest_video_url = None
+        print(f"⚠️ Error fetching playlist videos: {e}")
 
-# Function to get the audio URL (M4A format)
-def get_audio_url():
-    global latest_audio_url
-
-    if not latest_video_url:
-        get_latest_video()
-
-    if not latest_video_url:
-        print("⚠️ No valid latest video URL found.")
-        return None
-
+def get_audio_url(video_url):
+    """Fetch direct audio URL for the given video."""
     try:
         command = [
             "yt-dlp",
             "--cookies", COOKIES_FILE,
             "-f", "140",  # Ensuring M4A format
-            "-g", latest_video_url
+            "-g", video_url
         ]
         result = subprocess.run(command, capture_output=True, text=True, check=True)
-        latest_audio_url = result.stdout.strip()
-        print(f"✅ Latest audio URL: {latest_audio_url}")
-        return latest_audio_url
+        return result.stdout.strip()
     except subprocess.CalledProcessError as e:
         print(f"⚠️ Error getting audio URL: {e}")
         return None
 
-# Stream audio
 def generate_audio():
-    audio_url = get_audio_url()
-    if not audio_url:
-        print("⚠️ No audio URL available for streaming.")
-        return
+    """Continuously stream audio, looping through the shuffled playlist."""
+    global current_index
 
-    command = ["ffmpeg", "-re", "-i", audio_url, "-c", "copy", "-f", "mp3", "-"]
-    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    while True:
+        with cache_lock:
+            if not video_urls:
+                print("⚠️ Playlist is empty, refetching...")
+                fetch_playlist_videos()
 
-    try:
-        for chunk in iter(lambda: process.stdout.read(4096), b""):
-            yield chunk
-    except GeneratorExit:
+            video_url = video_urls[current_index]
+            current_index = (current_index + 1) % len(video_urls)  # Move to next video (loop)
+
+        print(f"🎵 Now Playing: {video_url}")
+
+        audio_url = get_audio_url(video_url)
+        if not audio_url:
+            print("⚠️ Skipping to next video...")
+            time.sleep(5)
+            continue  # Skip if no audio found
+
+        process = subprocess.Popen(
+            ["ffmpeg", "-re", "-i", audio_url, "-c", "copy", "-f", "mp3", "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+        )
+
+        try:
+            for chunk in iter(lambda: process.stdout.read(4096), b""):
+                yield chunk
+        except GeneratorExit:
+            process.terminate()
+            break
+        except Exception as e:
+            print(f"⚠️ Error during streaming: {e}")
+
         process.terminate()
-    except Exception as e:
-        print(f"⚠️ Error during audio streaming: {e}")
 
 @app.route('/stream')
 def stream():
@@ -79,15 +90,9 @@ def stream():
 
 @app.route('/refresh')
 def refresh():
-    get_latest_video()
-    return jsonify({"message": "Latest video updated", "video_url": latest_video_url})
-
-@app.route('/')
-def home():
-    return jsonify({"message": "Go to /stream to listen to the latest video audio"})
+    fetch_playlist_videos()
+    return jsonify({"message": "Playlist refreshed & shuffled", "video_count": len(video_urls)})
 
 if __name__ == '__main__':
-    get_latest_video()
-    port = int(os.environ.get("PORT", 8080))  # Default to 8080 if PORT not set
-    print(f"🚀 Starting Flask server on port {port}")
-    app.run(host='0.0.0.0', port=port, threaded=True, debug=True)
+    fetch_playlist_videos()  # Fetch videos at startup
+    app.run(host='0.0.0.0', port=8080, threaded=True, debug=True)
