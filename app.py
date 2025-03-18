@@ -15,7 +15,7 @@ YOUTUBE_STREAMS = {
 
 # 🎵 List of YouTube Playlists
 PLAYLISTS = {
-    "nasheeds": "https://www.youtube.com/playlist?list=PL123456789ABCDEF",  
+    "the_other_side": "https://youtube.com/playlist?list=PLQ02IYL5pmhEw1lGauK0-NKXqcCDlWtq7&si=EC2HaBoW3kOUpn_a",  
     "quran_recitation": "https://www.youtube.com/playlist?list=PL987654321FEDCBA"  
 }
 
