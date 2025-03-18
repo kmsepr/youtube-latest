@@ -2,6 +2,7 @@ from flask import Flask, Response, jsonify
 import subprocess
 import os
 import random
+import threading
 
 app = Flask(__name__)
 
@@ -14,6 +15,10 @@ COOKIES_FILE = "/mnt/data/cookies.txt"
 # List to store shuffled playlist
 shuffled_videos = []
 current_index = 0
+
+# Cache for storing latest stream URLs
+stream_cache = {}
+cache_lock = threading.Lock()
 
 # Extract and shuffle video URLs
 def refresh_playlist():
@@ -41,25 +46,38 @@ def get_next_video():
         return video_url
     return None
 
+# Fetch direct audio URL
+def get_audio_url(youtube_url):
+    command = [
+        "yt-dlp",
+        "--cookies", COOKIES_FILE,
+        "--force-generic-extractor",
+        "-f", "91",
+        "-g", youtube_url
+    ]
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return result.stdout.strip() if result.stdout else None
+    except subprocess.CalledProcessError:
+        return None
+
 # Stream audio from a video
 def generate_audio(video_url):
+    audio_url = get_audio_url(video_url)
+    if not audio_url:
+        return
+
     command = [
-        "yt-dlp", "--cookies", COOKIES_FILE, "-f", "bestaudio", "-o", "-", video_url
+        "ffmpeg", "-i", audio_url, "-acodec", "libmp3lame", "-b:a", "40k", "-f", "mp3", "-"
     ]
 
-    process_yt = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-
-    process_ffmpeg = subprocess.Popen(
-        ["ffmpeg", "-i", "pipe:0", "-acodec", "libmp3lame", "-b:a", "40k", "-f", "mp3", "-"],
-        stdin=process_yt.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-    )
+    process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     try:
-        for chunk in iter(lambda: process_ffmpeg.stdout.read(1024), b""):
+        for chunk in iter(lambda: process.stdout.read(1024), b""):
             yield chunk
     except GeneratorExit:
-        process_ffmpeg.terminate()
-        process_yt.terminate()
+        process.terminate()
     except Exception as e:
         print(f"⚠️ Error: {e}")
 
