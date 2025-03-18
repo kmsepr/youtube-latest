@@ -22,7 +22,7 @@ def get_latest_video():
     if video_urls:
         latest_video_url = video_urls[0]  # The first one is the latest
 
-# Function to get the audio URL
+# Function to get the audio URL (M4A format)
 def get_audio_url():
     global latest_audio_url
 
@@ -35,7 +35,7 @@ def get_audio_url():
     command = [
         "yt-dlp",
         "--cookies", COOKIES_FILE,
-        "-f", "bestaudio",
+        "-f", "140",  # Ensuring M4A format
         "-g", latest_video_url
     ]
     try:
