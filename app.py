@@ -7,16 +7,18 @@ app = Flask(__name__)
 YOUTUBE_PLAYLIST = "https://www.youtube.com/playlist?list=PLWzDl-O4zlwSDM6PAMsGgFNCPsvQk-2aN"
 
 def generate_audio():
-    command = [
-        "yt-dlp", "-f", "bestaudio", "-o", "-", YOUTUBE_PLAYLIST
+    """Fetches YouTube playlist audio and streams it as MP3 (40 kbps)."""
+    command_yt = [
+        "yt-dlp", "-f", "249", "-o", "-", YOUTUBE_PLAYLIST
     ]
 
-    process_yt = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    process_yt = subprocess.Popen(command_yt, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
-    process_ffmpeg = subprocess.Popen(
-        ["ffmpeg", "-i", "-", "-acodec", "libmp3lame", "-b:a", "128k", "-f", "mp3", "-"],
-        stdin=process_yt.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-    )
+    command_ffmpeg = [
+        "ffmpeg", "-i", "-", "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1", "-f", "mp3", "-"
+    ]
+
+    process_ffmpeg = subprocess.Popen(command_ffmpeg, stdin=process_yt.stdout, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
 
     try:
         for chunk in iter(lambda: process_ffmpeg.stdout.read(1024), b""):
@@ -36,5 +38,5 @@ def home():
     return jsonify({"message": "Go to /stream to listen to the radio stream"})
 
 if __name__ == '__main__':
-    port = int(os.environ.get("PORT", 8080))  # Koyeb uses port 8080
+    port = int(os.environ.get("PORT", 8080))  # Koyeb requires port 8080
     app.run(host='0.0.0.0', port=port, threaded=True)
