@@ -1,4 +1,4 @@
-from flask import Flask, Response, request, jsonify
+from flask import Flask, Response, jsonify
 import subprocess
 
 app = Flask(__name__)
@@ -43,20 +43,19 @@ def generate_audio(playlist_url):
         process.terminate()
         ffmpeg_process.terminate()
 
-@app.route('/stream')
-def stream():
-    playlist_key = request.args.get("playlist", "playlist1")  # Default to "playlist1"
+@app.route('/stream/<playlist_key>')
+def stream(playlist_key):
     playlist_url = PLAYLISTS.get(playlist_key)
 
     if not playlist_url:
-        return jsonify({"error": "Invalid playlist key. Choose from: " + ", ".join(PLAYLISTS.keys())}), 400
+        return jsonify({"error": "Invalid playlist key. Available playlists: " + ", ".join(PLAYLISTS.keys())}), 400
 
     return Response(generate_audio(playlist_url), mimetype='audio/mpeg')
 
 @app.route('/')
 def home():
     return jsonify({
-        "message": "Go to /stream?playlist=playlist1 (or playlist2) to listen to a specific playlist",
+        "message": "Use /stream/playlist1 or /stream/playlist2 to listen to a specific playlist",
         "available_playlists": list(PLAYLISTS.keys())
     })
 
