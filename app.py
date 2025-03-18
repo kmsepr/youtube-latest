@@ -7,9 +7,6 @@ app = Flask(__name__)
 # Configure logging
 logging.basicConfig(level=logging.DEBUG, format="%(asctime)s - %(levelname)s - %(message)s")
 
-# Path to cookies file
-COOKIES_PATH = "/mnt/data/cookies.txt"
-
 # Dictionary of YouTube playlists
 PLAYLISTS = {
     "playlist1": "https://www.youtube.com/playlist?list=PLWzDl-O4zlwSDM6PAMsGgFNCPsvQk-2aN",
@@ -22,7 +19,6 @@ def generate_audio(playlist_url):
     # Run yt-dlp to get the best audio URL
     command = [
         "yt-dlp",
-        "--cookies", COOKIES_PATH,
         "--force-generic-extractor",
         "-f", "91",
         "-o", "-",
