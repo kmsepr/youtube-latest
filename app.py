@@ -71,4 +71,11 @@ def stream():
 
     return Response(generate_audio(video_url), mimetype='audio/mpeg')
 
-@app.rou
+@app.route('/')
+def home():
+    return jsonify({"message": "Go to /stream to listen to the radio stream"})
+
+if __name__ == '__main__':
+    refresh_playlist()  # Load playlist on startup
+    port = int(os.environ.get("PORT", 8080))  # Koyeb requires port 8080
+    app.run(host='0.0.0.0', port=port, threaded=True)
