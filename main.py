@@ -1,65 +1,43 @@
-from flask import Flask, Response
-import os
-import random
 import subprocess
-from yt_dlp import YoutubeDL
+import os
 
-app = Flask(__name__)
+# Path to the cookies file
+COOKIES_PATH = "/mnt/data/cookies.txt"
 
-# YouTube playlist URL
-PLAYLIST_URL = "https://youtube.com/playlist?list=PLMDetQy00TVmnHULOZQlJOpm39X8tIN9H"
-
-# Directory to store downloaded audio files
-AUDIO_DIR = "audio"
-os.makedirs(AUDIO_DIR, exist_ok=True)
-
-def download_playlist():
-    """Download audio from the YouTube playlist."""
-    ydl_opts = {
-        'format': 'bestaudio/best',
-        'extractaudio': True,
-        'audioformat': 'mp3',
-        'outtmpl': f'{AUDIO_DIR}/%(title)s.%(ext)s',
-        'noplaylist': False,
-        'quiet': True,  # Suppress yt-dlp output
-        'ignoreerrors': True,  # Ignore errors and continue with the next video
-        'extractor_args': {
-            'youtube': {
-                'skip': ['dash', 'hls'],  # Skip DASH and HLS formats
-            },
-        },
-    }
-    with YoutubeDL(ydl_opts) as ydl:
-        ydl.download([PLAYLIST_URL])
-
-def shuffle_audio_files():
-    """Shuffle the downloaded audio files."""
-    audio_files = [f for f in os.listdir(AUDIO_DIR) if f.endswith('.mp3')]
-    random.shuffle(audio_files)
-    return audio_files
-
-def generate_audio_stream():
-    """Stream shuffled audio files."""
-    audio_files = shuffle_audio_files()
-    for audio_file in audio_files:
-        audio_path = os.path.join(AUDIO_DIR, audio_file)
-        ffmpeg_command = [
-            'ffmpeg',
-            '-re',  # Read input at native frame rate
-            '-i', audio_path,
-            '-f', 'mp3',
-            '-'  # Output to stdout
+# Function to download a video or playlist
+def download_youtube_content(url, output_path=None):
+    try:
+        # Base command with yt-dlp
+        command = [
+            "yt-dlp",
+            "--cookies", COOKIES_PATH,
+            url
         ]
-        process = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, bufsize=1024)
-        for chunk in iter(lambda: process.stdout.read(1024), b''):
-            yield chunk
-        process.terminate()  # Ensure the process is terminated after streaming
 
-@app.route('/stream')
-def stream():
-    """Route to stream audio."""
-    download_playlist()
-    return Response(generate_audio_stream(), mimetype='audio/mpeg')
+        # Add output path if provided
+        if output_path:
+            command.extend(["-o", output_path])
 
-if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+        # Run the command
+        result = subprocess.run(command, check=True, text=True, capture_output=True)
+
+        # Print the output
+        print("Download successful!")
+        print(result.stdout)
+
+    except subprocess.CalledProcessError as e:
+        # Handle errors
+        print("Download failed!")
+        print("Error:", e.stderr)
+
+# Example usage
+if __name__ == "__main__":
+    # Replace with your YouTube URL
+    youtube_url = "https://www.youtube.com/watch?v=VIDEO_ID"  # or a playlist URL
+
+    # Optional: Specify an output path template
+    # Example: "/path/to/save/%(title)s.%(ext)s"
+    output_template = None
+
+    # Download the content
+    download_youtube_content(youtube_url, output_template)
