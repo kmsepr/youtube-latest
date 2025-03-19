@@ -1,58 +1,57 @@
-import time
-import subprocess
-import yt_dlp
-from fastapi import FastAPI, HTTPException
-from fastapi.responses import StreamingResponse
+from flask import Flask, Response
+     import os
+     import random
+     import subprocess
+     from yt_dlp import YoutubeDL
 
-app = FastAPI()
+     app = Flask(__name__)
 
-COOKIES_FILE = "/mnt/data/cookies.txt"
-FFMPEG_CMD = [
-    "ffmpeg", "-re", "-i", "-", "-acodec", "libmp3lame", "-b:a", "128k",
-    "-f", "mp3", "pipe:1"
-]
+     # YouTube playlist URL
+     PLAYLIST_URL = "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
 
-def get_audio_url(playlist_url):
-    """ Extracts the first playable audio URL from the YouTube playlist. """
-    ydl_opts = {
-        "format": "bestaudio",
-        "noplaylist": False,
-        "quiet": True,
-        "extract_flat": False,
-        "cookies": COOKIES_FILE,
-    }
+     # Directory to store downloaded audio files
+     AUDIO_DIR = "audio"
+     os.makedirs(AUDIO_DIR, exist_ok=True)
 
-    while True:  # Keep retrying if it fails
-        try:
-            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-                info = ydl.extract_info(playlist_url, download=False)
-                if "entries" in info and info["entries"]:
-                    for entry in info["entries"]:
-                        if entry and "url" in entry:
-                            return entry["url"]
-        except Exception as e:
-            print(f"Error fetching audio URL: {e}. Retrying in 5 seconds...")
-            time.sleep(5)
+     def download_playlist():
+         """Download audio from the YouTube playlist."""
+         ydl_opts = {
+             'format': 'bestaudio/best',
+             'extractaudio': True,
+             'audioformat': 'mp3',
+             'outtmpl': f'{AUDIO_DIR}/%(title)s.%(ext)s',
+             'noplaylist': False,
+         }
+         with YoutubeDL(ydl_opts) as ydl:
+             ydl.download([PLAYLIST_URL])
 
-@app.get("/stream")
-def stream_audio(playlist_url: str):
-    """ Streams YouTube audio using ffmpeg. """
-    audio_url = get_audio_url(playlist_url)
-    if not audio_url:
-        raise HTTPException(status_code=500, detail="Failed to fetch audio URL.")
+     def shuffle_audio_files():
+         """Shuffle the downloaded audio files."""
+         audio_files = [f for f in os.listdir(AUDIO_DIR) if f.endswith('.mp3')]
+         random.shuffle(audio_files)
+         return audio_files
 
-    def generate():
-        process = subprocess.Popen(
-            ["ffmpeg", "-i", audio_url, "-acodec", "libmp3lame", "-b:a", "128k", "-f", "mp3", "pipe:1"],
-            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-        )
-        try:
-            while True:
-                chunk = process.stdout.read(1024)
-                if not chunk:
-                    break
-                yield chunk
-        except GeneratorExit:
-            process.kill()
+     def generate_audio_stream():
+         """Stream shuffled audio files."""
+         audio_files = shuffle_audio_files()
+         for audio_file in audio_files:
+             audio_path = os.path.join(AUDIO_DIR, audio_file)
+             ffmpeg_command = [
+                 'ffmpeg',
+                 '-re',  # Read input at native frame rate
+                 '-i', audio_path,
+                 '-f', 'mp3',
+                 '-'  # Output to stdout
+             ]
+             process = subprocess.Popen(ffmpeg_command, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+             for chunk in iter(lambda: process.stdout.read(1024), b''):
+                 yield chunk
 
-    return StreamingResponse(generate(), media_type="audio/mpeg")
+     @app.route('/stream')
+     def stream():
+         """Route to stream audio."""
+         download_playlist()
+         return Response(generate_audio_stream(), mimetype='audio/mpeg')
+
+     if __name__ == '__main__':
+         app.run(host='0.0.0.0', port=5000)
