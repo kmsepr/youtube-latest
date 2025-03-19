@@ -1,16 +1,19 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 import yt_dlp
 
 app = FastAPI()
 
-def get_latest_video_url(channel_url):
-    ydl_opts = {"quiet": True, "extract_flat": True, "force_generic_extractor": True}
+def get_playlist_audio_urls(playlist_url):
+    ydl_opts = {
+        "quiet": True,
+        "extract_flat": True,  # Get only metadata (no downloads)
+        "force_generic_extractor": True,
+    }
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        result = ydl.extract_info(channel_url, download=False)
+        result = ydl.extract_info(playlist_url, download=False)
         if "entries" in result:
-            latest_video = result["entries"][0]  # Get latest video
-            return latest_video["url"]
-    return None
+            return [entry["url"] for entry in result["entries"]]
+    return []
 
 def get_audio_stream(video_url):
     ydl_opts = {"format": "bestaudio", "quiet": True}
@@ -18,10 +21,14 @@ def get_audio_stream(video_url):
         info = ydl.extract_info(video_url, download=False)
         return info["url"]
 
-@app.get("/stream")
-def stream_audio(channel_url: str):
-    video_url = get_latest_video_url(channel_url)
-    if not video_url:
+@app.get("/playlist.m3u")
+def generate_m3u(playlist_url: str):
+    video_urls = get_playlist_audio_urls(playlist_url)
+    if not video_urls:
         return {"error": "No videos found"}
-    audio_url = get_audio_stream(video_url)
-    return {"audio_url": audio_url}
+    
+    audio_urls = [get_audio_stream(video) for video in video_urls]
+    
+    m3u_content = "#EXTM3U\n" + "\n".join(f"#EXTINF:-1,Audio {i+1}\n{url}" for i, url in enumerate(audio_urls))
+    
+    return Response(content=m3u_content, media_type="audio/x-mpegurl")
