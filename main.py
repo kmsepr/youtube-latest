@@ -7,7 +7,7 @@ from flask import Flask, Response
      app = Flask(__name__)
 
      # YouTube playlist URL
-     PLAYLIST_URL = "https://www.youtube.com/playlist?list=YOUR_PLAYLIST_ID"
+     PLAYLIST_URL = "https://youtube.com/playlist?list=PLMDetQy00TVmnHULOZQlJOpm39X8tIN9H"
 
      # Directory to store downloaded audio files
      AUDIO_DIR = "audio"
