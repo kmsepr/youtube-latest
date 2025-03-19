@@ -22,6 +22,12 @@ def download_playlist():
         'outtmpl': f'{AUDIO_DIR}/%(title)s.%(ext)s',
         'noplaylist': False,
         'quiet': True,  # Suppress yt-dlp output
+        'ignoreerrors': True,  # Ignore errors and continue with the next video
+        'extractor_args': {
+            'youtube': {
+                'skip': ['dash', 'hls'],  # Skip DASH and HLS formats
+            },
+        },
     }
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download([PLAYLIST_URL])
