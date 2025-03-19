@@ -33,7 +33,7 @@ def download_youtube_content(url, output_path=None):
 # Example usage
 if __name__ == "__main__":
     # Replace with your YouTube URL
-    youtube_url = "https://www.youtube.com/watch?v=VIDEO_ID"  # or a playlist URL
+    youtube_url = "https://youtube.com/playlist?list=PLeEcfRjZG7TqFovsTbDVBLbms2MyCh479"  # or a playlist URL
 
     # Optional: Specify an output path template
     # Example: "/path/to/save/%(title)s.%(ext)s"
