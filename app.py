@@ -1,60 +1,47 @@
-from fastapi import FastAPI, Response, Query
+from fastapi import FastAPI, Query
 import yt_dlp
 import time
 
 app = FastAPI()
 
-COOKIES_PATH = "/mnt/data/cookies.txt"
-
-def get_playlist_audio_urls(playlist_url):
-    ydl_opts = {
-        "quiet": True,
-        "extract_flat": True,
-        "cookiefile": COOKIES_PATH,
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-        "sleep_interval": 5,
-        "max_sleep_interval": 10,
-        "extractor_args": {"youtubetab": "skip=authcheck"},  # Bypass auth check
-    }
-    
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+def fetch_playlist(playlist_url, max_retries=99999, retry_delay=10):
+    """Fetches YouTube playlist and retries indefinitely on failure."""
+    retries = 0
+    while retries < max_retries:
         try:
-            result = ydl.extract_info(playlist_url, download=False)
-            if result and "entries" in result:
-                urls = [entry["url"] for entry in result["entries"] if "url" in entry]
-                return urls
-        except Exception as e:
-            print(f"Error fetching playlist: {e}")
-    return []
+            ydl_opts = {
+                'quiet': True,
+                'extractor_args': {'youtubetab': 'skip=authcheck'},
+                'cookiefile': '/mnt/data/cookies.txt',  # Ensure this file is in Netscape format!
+            }
+            with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+                result = ydl.extract_info(playlist_url, download=False)
+                if result and 'entries' in result:
+                    print("✅ Playlist fetched successfully!")
+                    return result['entries']
+        except yt_dlp.utils.DownloadError as e:
+            print(f"⚠️ Error fetching playlist: {e}")
+        
+        retries += 1
+        print(f"🔄 Retrying... ({retries}/{max_retries}) in {retry_delay} seconds...")
+        time.sleep(retry_delay)
 
-def get_audio_stream(video_url):
-    ydl_opts = {
-        "format": "bestaudio",
-        "quiet": True,
-        "cookiefile": COOKIES_PATH,
-        "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
-    }
-
-    with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-        try:
-            info = ydl.extract_info(video_url, download=False)
-            return info["url"]
-        except Exception as e:
-            print(f"Error fetching audio URL: {e}")
-            return None
+    print("❌ Max retries reached. Giving up.")
+    return None
 
 @app.get("/playlist.m3u")
-def generate_m3u(playlist_url: str = Query(..., title="YouTube Playlist URL")):
-    video_urls = get_playlist_audio_urls(playlist_url)
-    if not video_urls:
-        return {"error": "No videos found or YouTube is blocking requests"}
+async def get_playlist(playlist_url: str = Query(..., description="YouTube Playlist URL")):
+    """Endpoint to fetch and return M3U playlist."""
+    print(f"🎵 Fetching playlist: {playlist_url}")
+    playlist_entries = fetch_playlist(playlist_url)
 
-    audio_urls = [get_audio_stream(video) for video in video_urls if video]
-    audio_urls = [url for url in audio_urls if url]
+    if not playlist_entries:
+        return {"error": "Failed to fetch playlist after multiple retries."}
 
-    if not audio_urls:
-        return {"error": "Failed to get audio streams"}
+    m3u_content = "#EXTM3U\n"
+    for entry in playlist_entries:
+        title = entry.get("title", "Unknown")
+        url = entry.get("url", "")
+        m3u_content += f"#EXTINF:-1,{title}\n{url}\n"
 
-    m3u_content = "#EXTM3U\n" + "\n".join(f"#EXTINF:-1,Audio {i+1}\n{url}" for i, url in enumerate(audio_urls))
-
-    return Response(content=m3u_content, media_type="audio/x-mpegurl")
+    return m3u_content
