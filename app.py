@@ -4,15 +4,16 @@ import time
 
 app = FastAPI()
 
-def fetch_playlist(playlist_url, max_retries=99999, retry_delay=10):
-    """Fetches YouTube playlist and retries indefinitely on failure."""
+def fetch_audio_urls(playlist_url, max_retries=99999, retry_delay=10):
+    """Fetch direct audio URLs from a YouTube playlist with retries."""
     retries = 0
     while retries < max_retries:
         try:
             ydl_opts = {
                 'quiet': True,
-                'extractor_args': {'youtubetab': 'skip=authcheck'},
-                'cookiefile': '/mnt/data/cookies.txt',  # Ensure this file is in Netscape format!
+                'format': 'bestaudio/best',
+                'extract_flat': False,  # Fully extract details
+                'cookiefile': '/mnt/data/cookies.txt',  # Use a cookie file if needed
             }
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 result = ydl.extract_info(playlist_url, download=False)
@@ -21,7 +22,7 @@ def fetch_playlist(playlist_url, max_retries=99999, retry_delay=10):
                     return result['entries']
         except yt_dlp.utils.DownloadError as e:
             print(f"⚠️ Error fetching playlist: {e}")
-        
+
         retries += 1
         print(f"🔄 Retrying... ({retries}/{max_retries}) in {retry_delay} seconds...")
         time.sleep(retry_delay)
@@ -31,9 +32,9 @@ def fetch_playlist(playlist_url, max_retries=99999, retry_delay=10):
 
 @app.get("/playlist.m3u")
 async def get_playlist(playlist_url: str = Query(..., description="YouTube Playlist URL")):
-    """Endpoint to fetch and return M3U playlist."""
-    print(f"🎵 Fetching playlist: {playlist_url}")
-    playlist_entries = fetch_playlist(playlist_url)
+    """Returns an M3U playlist for streaming in an internet radio."""
+    print(f"🎵 Fetching YouTube playlist: {playlist_url}")
+    playlist_entries = fetch_audio_urls(playlist_url)
 
     if not playlist_entries:
         return {"error": "Failed to fetch playlist after multiple retries."}
@@ -41,7 +42,22 @@ async def get_playlist(playlist_url: str = Query(..., description="YouTube Playl
     m3u_content = "#EXTM3U\n"
     for entry in playlist_entries:
         title = entry.get("title", "Unknown")
-        url = entry.get("url", "")
-        m3u_content += f"#EXTINF:-1,{title}\n{url}\n"
+        formats = entry.get("formats", [])
+        best_audio_url = None
+        
+        # Get the best audio format
+        for fmt in formats:
+            if "audio" in fmt.get("format_note", "").lower():
+                best_audio_url = fmt.get("url")
+                break
 
-    return m3u_content
+        if best_audio_url:
+            m3u_content += f"#EXTINF:-1,{title}\n{best_audio_url}\n"
+        else:
+            print(f"⚠️ No playable audio found for {title}")
+
+    # Save the M3U file locally for Koyeb hosting
+    with open("/mnt/data/playlist.m3u", "w") as f:
+        f.write(m3u_content)
+
+    return {"message": "M3U playlist created!", "url": "/mnt/data/playlist.m3u"}
