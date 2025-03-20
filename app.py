@@ -3,7 +3,6 @@ import subprocess
 import time
 import threading
 from flask import Flask, Response, jsonify
-import yt_dlp
 
 app = Flask(__name__)
 
@@ -17,45 +16,49 @@ YOUTUBE_CHANNELS = {
 stream_cache = {}
 cache_lock = threading.Lock()
 
+
 def get_latest_video_url(channel_id):
-    """Fetch the latest video URL using yt-dlp."""
-    ydl_opts = {
-        "quiet": True,
-        "extract_flat": True,
-        "playlistend": 1,  # Get only the latest video
-    }
-    channel_url = f"https://www.youtube.com/channel/{channel_id}"
+    """Fetch the latest video URL using yt-dlp subprocess."""
+    command = [
+        "yt-dlp",
+        "--cookies", "/mnt/data/cookies.txt",
+        "--force-generic-extractor",
+        "--extract-flat", "true",  # Get only metadata without downloading
+        "--playlist-end", "1",  # Fetch only the latest video
+        "-g", f"https://www.youtube.com/channel/{channel_id}"
+    ]
     
     try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info = ydl.extract_info(channel_url, download=False)
-            if info and "entries" in info and len(info["entries"]) > 0:
-                video_entry = info["entries"][0]
-                return video_entry.get("url") or video_entry.get("webpage_url")
-    except yt_dlp.utils.DownloadError as e:
-        print(f"Error fetching latest video: {e}")
-
-    return None  # No video found
-
-def get_audio_url(youtube_url):
-    """Extract the direct audio URL from a YouTube video using yt-dlp."""
-    ydl_opts = {
-        'format': 'bestaudio',
-        'quiet': True,
-        'cookies': '/mnt/data/cookies.txt'  # Ensure the correct path
-    }
-    try:
-        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
-            info_dict = ydl.extract_info(youtube_url, download=False)
-            formats = info_dict.get('formats', [])
-            for f in formats:
-                if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                    return f.get('url')
-        print(f"No audio formats found for {youtube_url}")
-    except yt_dlp.utils.DownloadError as e:
-        print(f"Error extracting audio URL: {e}")
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        video_url = result.stdout.strip()
+        if video_url:
+            return video_url
+    except subprocess.CalledProcessError as e:
+        print(f"Error fetching latest video: {e.stderr}")
 
     return None
+
+
+def get_audio_url(youtube_url):
+    """Extract the direct audio URL from a YouTube video using yt-dlp subprocess."""
+    command = [
+        "yt-dlp",
+        "--cookies", "/mnt/data/cookies.txt",
+        "--force-generic-extractor",
+        "-f", "bestaudio",
+        "-g", youtube_url
+    ]
+    
+    try:
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        audio_url = result.stdout.strip()
+        if audio_url:
+            return audio_url
+    except subprocess.CalledProcessError as e:
+        print(f"Error extracting audio URL: {e.stderr}")
+
+    return None
+
 
 def refresh_stream_url():
     """Refresh the audio stream URLs periodically."""
@@ -70,6 +73,7 @@ def refresh_stream_url():
                         print(f"Updated stream URL for {station}: {audio_url}")
 
         time.sleep(1800)  # Refresh every 30 minutes
+
 
 def generate_stream(station_name):
     """Stream audio using FFmpeg, updating the URL when it expires."""
@@ -105,15 +109,12 @@ def generate_stream(station_name):
         try:
             for chunk in iter(lambda: process.stdout.read(8192), b""):
                 yield chunk
-        except GeneratorExit:
+        except (GeneratorExit, Exception):
+            print(f"Stream error for {station_name}, restarting...")
             process.kill()
-            break
-        except Exception as e:
-            print(f"Stream error: {e}")
+            time.sleep(5)
+            continue
 
-        print("FFmpeg stopped, retrying in 5s...")
-        process.kill()
-        time.sleep(5)
 
 @app.route("/play/<station_name>")
 def stream(station_name):
@@ -121,6 +122,7 @@ def stream(station_name):
         return jsonify({"error": "Station not found"}), 404
 
     return Response(generate_stream(station_name), mimetype="audio/mpeg")
+
 
 # Start the URL refresher thread
 threading.Thread(target=refresh_stream_url, daemon=True).start()
