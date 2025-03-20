@@ -1,57 +1,43 @@
-from flask import Flask, Response, jsonify
 import subprocess
+from flask import Flask, request, jsonify
 
 app = Flask(__name__)
 
-# Set your YouTube channel URL
-CHANNEL_URL = "https://www.youtube.com/@BBCNews"
-
-# Path to cookies.txt file (Replace this with your actual path)
+# Path to cookies file (modify if needed)
 COOKIES_PATH = "/mnt/data/cookies.txt"
 
-# Function to get the latest audio stream URL using cookies
-def get_latest_audio_url():
+# Ensure yt-dlp is updated
+subprocess.run(["pip", "install", "--no-cache-dir", "-U", "yt-dlp"])
+
+def get_audio_stream_url(channel_url):
+    """Fetches the latest audio stream URL from a YouTube channel."""
     try:
         command = [
-            "yt-dlp", "--get-url", "-f", "bestaudio", "--no-playlist",
-            "--cookies", COOKIES_PATH,  # Use cookies
-            CHANNEL_URL
+            "yt-dlp",
+            "--get-url",
+            "-f", "bestaudio",
+            "--cookies", COOKIES_PATH,
+            "--no-playlist",
+            channel_url
         ]
-        result = subprocess.run(command, check=True, capture_output=True, text=True)
-        url = result.stdout.strip()
-        
-        if not url:
-            raise ValueError("No URL found")
-        
-        return url
-    except Exception as e:
-        print(f"Error fetching YouTube URL: {e}")
-        return None
+        result = subprocess.run(command, capture_output=True, text=True, check=True)
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        return f"Error: {e.stderr}"
 
-# Streaming route
-@app.route('/stream')
+@app.route('/stream', methods=['GET'])
 def stream_audio():
-    audio_url = get_latest_audio_url()
-    if not audio_url:
-        return jsonify({"error": "Failed to fetch audio stream"}), 500
+    """Fetches the latest audio stream URL and returns it."""
+    channel_url = request.args.get("channel")
+    if not channel_url:
+        return jsonify({"error": "Channel URL is required"}), 400
 
-    command = [
-        "ffmpeg", "-re", "-i", audio_url, "-vn", "-acodec", "libmp3lame",
-        "-b:a", "128k", "-f", "mp3", "pipe:1"
-    ]
+    stream_url = get_audio_stream_url(channel_url)
+    
+    if stream_url.startswith("Error"):
+        return jsonify({"error": stream_url}), 500
 
-    def generate():
-        try:
-            process = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-            while True:
-                chunk = process.stdout.read(1024)
-                if not chunk:
-                    break
-                yield chunk
-        except Exception as e:
-            print(f"Error streaming audio: {e}")
-
-    return Response(generate(), mimetype="audio/mpeg")
+    return jsonify({"stream_url": stream_url})
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, threaded=True)
+    app.run(host='0.0.0.0', port=5000)
