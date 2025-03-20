@@ -1,29 +1,22 @@
-# Use an official Python runtime as the base image
-FROM python:3.9-slim
+# Use the latest official Python image
+FROM python:3.11
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-
-# Install system dependencies (FFmpeg)
-RUN apt-get update && apt-get install -y ffmpeg && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory in the container
+# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the requirements file into the container
-COPY requirements.txt .
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    ffmpeg \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install yt-dlp
+RUN pip install --no-cache-dir yt-dlp flask
 
-# Copy the application code into the container
+# Copy all application files
 COPY . .
 
-# Create the audio directory
-RUN mkdir -p audio
+# Expose port 8000 for the Flask app
+EXPOSE 8000
 
-# Expose the port the app runs on
-EXPOSE 5000
-
-# Command to run the application
-CMD ["python", "main.py"]
+# Run the Flask app
+CMD ["python", "server.py"]
