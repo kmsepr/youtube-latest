@@ -18,12 +18,11 @@ stream_cache = {}
 cache_lock = threading.Lock()
 
 def get_latest_video_url(channel_id):
-    """Fetch the latest video URL using yt-dlp instead of the YouTube API."""
+    """Fetch the latest video URL using yt-dlp."""
     ydl_opts = {
         "quiet": True,
         "extract_flat": True,
         "playlistend": 1,  # Get only the latest video
-        "force_generic_extractor": True,
     }
     channel_url = f"https://www.youtube.com/channel/{channel_id}"
     
@@ -31,7 +30,8 @@ def get_latest_video_url(channel_id):
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info = ydl.extract_info(channel_url, download=False)
             if info and "entries" in info and len(info["entries"]) > 0:
-                return info["entries"][0]["url"]  # Latest video URL
+                video_entry = info["entries"][0]
+                return video_entry.get("url") or video_entry.get("webpage_url")
     except yt_dlp.utils.DownloadError as e:
         print(f"Error fetching latest video: {e}")
 
