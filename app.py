@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 API_KEY = os.getenv("YOUTUBE_API_KEY")
 
+# Path to YouTube cookies file (if needed)
+COOKIES_PATH = "/mnt/data/cookies.txt"
+
 app = Flask(__name__)
 
 # Mapping of station names to YouTube channel IDs
@@ -54,7 +57,8 @@ def get_audio_url(youtube_url):
         'format': 'bestaudio',
         'quiet': True,
         'force_generic_extractor': True,
-        'extract_flat': True
+        'extract_flat': True,
+        'cookies': COOKIES_PATH  # Use cookies for authentication
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
