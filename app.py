@@ -55,7 +55,6 @@ def get_audio_url(youtube_url):
     'quiet': True,
     'cookies': '/mnt/data/cookies.txt'  # Ensure the correct path
 }
-    }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(youtube_url, download=False)
