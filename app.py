@@ -7,21 +7,18 @@ import yt_dlp
 
 app = Flask(__name__)
 
-# Replace with your YouTube Data API key
 API_KEY = 'YOUR_YOUTUBE_DATA_API_KEY'
 
-# Mapping of station names to channel IDs
 YOUTUBE_CHANNELS = {
     "example_channel": "UC_x5XG1OV2P6uZZ5FSM9Ttw",  # Replace with actual channel IDs
     # Add more channels as needed
 }
 
-# Cache to store the latest audio stream URLs
 stream_cache = {}
 cache_lock = threading.Lock()
 
 def get_latest_video_url(channel_id):
-    """Fetch the latest video URL from a YouTube channel using the YouTube Data API."""
+    """Fetch the latest video URL from a YouTube channel."""
     base_url = "https://www.googleapis.com/youtube/v3/search"
     params = {
         "key": API_KEY,
@@ -38,33 +35,24 @@ def get_latest_video_url(channel_id):
         if data["items"]:
             video_id = data["items"][0]["id"]["videoId"]
             return f"https://www.youtube.com/watch?v={video_id}"
-        else:
-            print(f"No videos found for channel ID: {channel_id}")
-            return None
     except requests.RequestException as e:
-        print(f"Error fetching latest video: {e}")
-        return None
+        print(f"⚠️ Error fetching latest video: {e}")
+    return None
 
 def get_audio_url(youtube_url):
-    """Extract the direct audio URL from a YouTube video using yt-dlp."""
+    """Extract the direct audio URL using yt-dlp."""
     ydl_opts = {
-        'format': 'bestaudio',
+        'format': 'bestaudio/best',
         'quiet': True,
-        'force_generic_extractor': True,
-        'extract_flat': True
+        'noplaylist': True
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(youtube_url, download=False)
-            formats = info_dict.get('formats', [])
-            for f in formats:
-                if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
-                    return f.get('url')
-        print(f"No audio formats found for {youtube_url}")
-        return None
+            return info_dict.get('url')
     except yt_dlp.utils.DownloadError as e:
-        print(f"Error extracting audio URL: {e}")
-        return None
+        print(f"⚠️ Error extracting audio URL: {e}")
+    return None
 
 def refresh_stream_url():
     """Refresh the audio stream URLs periodically."""
@@ -76,31 +64,22 @@ def refresh_stream_url():
                     audio_url = get_audio_url(video_url)
                     if audio_url:
                         stream_cache[station] = audio_url
-        time.sleep(1800)  # Refresh every 30 minutes
+                    else:
+                        print(f"⚠️ Failed to get audio URL for {station}")
+        time.sleep(1800)  # Retry every 30 minutes
 
 def generate_stream(station_name):
-    """Stream audio using FFmpeg, updating the URL when it expires."""
+    """Stream audio using FFmpeg."""
     while True:
         with cache_lock:
             stream_url = stream_cache.get(station_name)
 
         if not stream_url:
-            print(f"No valid stream URL for {station_name}, fetching a new one...")
-            with cache_lock:
-                channel_id = YOUTUBE_CHANNELS.get(station_name)
-                if channel_id:
-                    video_url = get_latest_video_url(channel_id)
-                    if video_url:
-                        stream_url = get_audio_url(video_url)
-                        if stream_url:
-                            stream_cache[station_name] = stream_url
-
-        if not stream_url:
-            print(f"Failed to fetch stream URL for {station_name}, retrying in 30s...")
+            print(f"⚠️ No valid stream URL for {station_name}, retrying in 30s...")
             time.sleep(30)
             continue
 
-        print(f"Streaming from: {stream_url}")
+        print(f"🎵 Streaming from: {stream_url}")
 
         process = subprocess.Popen(
             ["ffmpeg", "-re", "-i", stream_url,
@@ -116,9 +95,9 @@ def generate_stream(station_name):
             process.kill()
             break
         except Exception as e:
-            print(f"Stream error: {e}")
+            print(f"⚠️ Stream error: {e}")
 
-        print("FFmpeg stopped, retrying in 5s...")
+        print("🔄 FFmpeg stopped, retrying in 5s...")
         process.kill()
         time.sleep(5)
 
@@ -129,7 +108,7 @@ def stream(station_name):
 
     return Response(generate_stream(station_name), mimetype="audio/mpeg")
 
-# Start the URL refresher thread
+# Start background thread
 threading.Thread(target=refresh_stream_url, daemon=True).start()
 
 if __name__ == "__main__":
