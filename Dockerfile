@@ -1,20 +1,11 @@
-# Use the official Python image
-FROM python:3.9-slim
+FROM python:3.9
 
-# Set the working directory
+# Install FFmpeg
+RUN apt update && apt install -y ffmpeg
+
 WORKDIR /app
-
-# Copy the requirements file
 COPY requirements.txt .
-
-# Install the required packages
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy the rest of the application code
+RUN pip install -r requirements.txt
 COPY . .
 
-# Expose the port the app runs on
-EXPOSE 8000
-
-# Run the application
 CMD ["python", "app.py"]
