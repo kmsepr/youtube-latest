@@ -7,10 +7,10 @@ import yt_dlp
 
 app = Flask(__name__)
 
-API_KEY = 'YOUR_YOUTUBE_DATA_API_KEY'
+API_KEY = 'AIzaSyAj-bnC6P212qb1smJO9yqEvd_hzZh5Ms8'
 
 YOUTUBE_CHANNELS = {
-    "example_channel": "UC_x5XG1OV2P6uZZ5FSM9Ttw",  # Replace with actual channel IDs
+    "entri_degree": "UC9VKXPGzRIs9raMlCwzljtA",  # Replace with actual channel IDs
     # Add more channels as needed
 }
 
