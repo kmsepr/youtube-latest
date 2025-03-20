@@ -15,8 +15,8 @@ app = Flask(__name__)
 
 # Mapping of station names to YouTube channel IDs
 YOUTUBE_CHANNELS = {
-    "entri_app": "UC9VKXPGzRIs9raMlCwzljtA",  # Replace with actual channel IDs
-    # Add more channels as needed
+    "entri_app": "UC9VKXPGzRIs9raMlCwzljtA",
+    "media_one": "UC-f7r46JhYv78q5pGrO6ivA",
 }
 
 # Cache to store the latest audio stream URLs
