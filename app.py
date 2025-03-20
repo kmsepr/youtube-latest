@@ -3,20 +3,14 @@ import subprocess
 import time
 import threading
 from flask import Flask, Response, jsonify
-import requests
 import yt_dlp
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 app = Flask(__name__)
 
 # Mapping of station names to YouTube channel IDs
 YOUTUBE_CHANNELS = {
     "entri_app": "UC9VKXPGzRIs9raMlCwzljtA",
-    "media_one": "UC-f7r46JhYv78q5pGrO6ivA",
+    "media_one": "UC-f7r46JhYv78q5pGrO6ivA",  # Media One channel
 }
 
 # Cache to store the latest audio stream URLs
@@ -24,37 +18,32 @@ stream_cache = {}
 cache_lock = threading.Lock()
 
 def get_latest_video_url(channel_id):
-    """Fetch the latest video URL from a YouTube channel using the YouTube Data API."""
-    base_url = "https://www.googleapis.com/youtube/v3/search"
-    params = {
-        "key": API_KEY,
-        "channelId": channel_id,
-        "order": "date",
-        "part": "id",
-        "maxResults": 1,
-        "type": "video"
+    """Fetch the latest video URL using yt-dlp instead of the YouTube API."""
+    ydl_opts = {
+        "quiet": True,
+        "extract_flat": True,
+        "playlistend": 1,  # Get only the latest video
+        "force_generic_extractor": True,
     }
+    channel_url = f"https://www.youtube.com/channel/{channel_id}"
+    
     try:
-        response = requests.get(base_url, params=params)
-        response.raise_for_status()
-        data = response.json()
-        if data["items"]:
-            video_id = data["items"][0]["id"]["videoId"]
-            return f"https://www.youtube.com/watch?v={video_id}"
-        else:
-            print(f"No videos found for channel ID: {channel_id}")
-            return None
-    except requests.RequestException as e:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            info = ydl.extract_info(channel_url, download=False)
+            if info and "entries" in info and len(info["entries"]) > 0:
+                return info["entries"][0]["url"]  # Latest video URL
+    except yt_dlp.utils.DownloadError as e:
         print(f"Error fetching latest video: {e}")
-        return None
+
+    return None  # No video found
 
 def get_audio_url(youtube_url):
     """Extract the direct audio URL from a YouTube video using yt-dlp."""
     ydl_opts = {
-    'format': 'bestaudio',
-    'quiet': True,
-    'cookies': '/mnt/data/cookies.txt'  # Ensure the correct path
-}
+        'format': 'bestaudio',
+        'quiet': True,
+        'cookies': '/mnt/data/cookies.txt'  # Ensure the correct path
+    }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
             info_dict = ydl.extract_info(youtube_url, download=False)
@@ -63,10 +52,10 @@ def get_audio_url(youtube_url):
                 if f.get('acodec') != 'none' and f.get('vcodec') == 'none':
                     return f.get('url')
         print(f"No audio formats found for {youtube_url}")
-        return None
     except yt_dlp.utils.DownloadError as e:
         print(f"Error extracting audio URL: {e}")
-        return None
+
+    return None
 
 def refresh_stream_url():
     """Refresh the audio stream URLs periodically."""
@@ -78,6 +67,8 @@ def refresh_stream_url():
                     audio_url = get_audio_url(video_url)
                     if audio_url:
                         stream_cache[station] = audio_url
+                        print(f"Updated stream URL for {station}: {audio_url}")
+
         time.sleep(1800)  # Refresh every 30 minutes
 
 def generate_stream(station_name):
