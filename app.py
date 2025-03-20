@@ -54,11 +54,10 @@ def get_latest_video_url(channel_id):
 def get_audio_url(youtube_url):
     """Extract the direct audio URL from a YouTube video using yt-dlp."""
     ydl_opts = {
-        'format': 'bestaudio',
-        'quiet': True,
-        'force_generic_extractor': True,
-        'extract_flat': True,
-        'cookies': COOKIES_PATH  # Use cookies for authentication
+    'format': 'bestaudio',
+    'quiet': True,
+    'cookies': '/mnt/data/cookies.txt'  # Ensure the correct path
+}
     }
     try:
         with yt_dlp.YoutubeDL(ydl_opts) as ydl:
