@@ -10,7 +10,7 @@ app = Flask(__name__)
 API_KEY = 'AIzaSyAj-bnC6P212qb1smJO9yqEvd_hzZh5Ms8'
 
 YOUTUBE_CHANNELS = {
-    "entri_degree": "UC9VKXPGzRIs9raMlCwzljtA",  # Replace with actual channel IDs
+    "entri_app": "UC9VKXPGzRIs9raMlCwzljtA",  # Replace with actual channel IDs
     # Add more channels as needed
 }
 
