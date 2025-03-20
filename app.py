@@ -19,7 +19,6 @@ def get_latest_video_url(channel_id):
     """Fetch the latest video URL from a YouTube channel."""
     command = [
         "yt-dlp",
-        "--cookies", "/mnt/data/cookies.txt",
         "--extract-flat", "true",  # Fetch metadata only
         "--playlist-end", "1",  # Get only the latest video
         "-g", f"https://www.youtube.com/channel/{channel_id}"
@@ -37,7 +36,6 @@ def get_audio_url(video_url):
     """Extract the direct audio URL from a YouTube video."""
     command = [
         "yt-dlp",
-        "--cookies", "/mnt/data/cookies.txt",
         "-f", "bestaudio",
         "-g", video_url
     ]
