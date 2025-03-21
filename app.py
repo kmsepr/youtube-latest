@@ -41,8 +41,10 @@ def get_playlist_videos(playlist_id):
 
 def get_audio_url(video_url):
     """Extract the direct audio URL from a YouTube video using yt-dlp."""
-    command = [
+        command = [
         "yt-dlp",
+        "--cookies", "/mnt/data/cookies.txt",
+        "--force-generic-extractor",
         "-f", "91",
         "-g", video_url
     ]
