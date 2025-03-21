@@ -4,9 +4,7 @@ import time
 import threading 
 import random 
 import requests 
-from flask 
-import Flask, Response, jsonify from dotenv 
-import load_dotenv
+from flask import Flask, Response, jsonify from dotenv import load_dotenv
 
 Load environment variables from .env file
 
