@@ -1,11 +1,20 @@
+# Use an official Python runtime as a parent image
 FROM python:3.9
 
-# Install FFmpeg
-RUN apt update && apt install -y ffmpeg
-
+# Set the working directory in the container
 WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY . .
 
+# Install FFmpeg
+RUN apt-get update && apt-get install -y ffmpeg
+
+# Copy the application files to the container
+COPY . /app
+
+# Install dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose port 8000 for the Flask server
+EXPOSE 8000
+
+# Command to run the application
 CMD ["python", "app.py"]
