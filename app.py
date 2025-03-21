@@ -44,8 +44,7 @@ def extract_audio_url(video_url):
     command = [
         "yt-dlp",
         "--cookies", "/mnt/data/cookies.txt",
-        "--force-generic-extractor",
-        "-f", "91",
+        "-f", "bestaudio",
         "-g", video_url
     ]
 
