@@ -1,2 +1,4 @@
-flask
+Flask
+requests
+python-dotenv
 yt-dlp
