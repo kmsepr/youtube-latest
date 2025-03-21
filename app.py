@@ -65,7 +65,7 @@ def refresh_stream_urls():
                 video_urls = get_playlist_videos(playlist_id)
                 if video_urls:
                     selected_video = random.choice(video_urls)  # Pick a random video from the playlist
-                    audio_url = get_audio_url(selected_video)
+                    audio_url = extract_audio_url(selected_video)  # Fixed function name
                     if audio_url:
                         stream_cache[station] = audio_url
                         print(f"Updated stream URL for {station}: {audio_url}")
@@ -86,7 +86,7 @@ def generate_stream(station_name):
                     video_urls = get_playlist_videos(playlist_id)
                     if video_urls:
                         selected_video = random.choice(video_urls)
-                        stream_url = get_audio_url(selected_video)
+                        stream_url = extract_audio_url(selected_video)  # Fixed function name
                         if stream_url:
                             stream_cache[station_name] = stream_url
 
