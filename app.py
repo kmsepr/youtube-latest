@@ -43,7 +43,7 @@ def get_audio_url(video_url):
     """Extract the direct audio URL from a YouTube video using yt-dlp."""
     command = [
         "yt-dlp",
-        "-f", "bestaudio",
+        "-f", "91",
         "-g", video_url
     ]
 
