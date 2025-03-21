@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 import threading
+import random
 import requests
 from flask import Flask, Response, jsonify
 from dotenv import load_dotenv
@@ -10,33 +11,31 @@ from dotenv import load_dotenv
 load_dotenv()
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
-# Flask app setup
 app = Flask(__name__)
 
-# Mapping of channel names to YouTube Channel IDs
-YOUTUBE_CHANNELS = {
-    "entri_app": "UC9VKXPGzRIs9raMlCwzljtA",
-    "media_one": "UC-f7r46JhYv78q5pGrO6ivA"
+# Mapping of station names to YouTube playlist IDs
+YOUTUBE_PLAYLISTS = {
+    "entri_app": "PL4pF7EMEu-ScQdLg_sFdMKAtYX5xX-Ec1",
+    "media_one": "PLxFIR7FGtGJ9T9zvI3oQGZKQZR1PvBziX"
 }
 
-# Cache to store the latest audio URLs
+# Cache to store playlist videos
 stream_cache = {}
 cache_lock = threading.Lock()
 
-def get_latest_video_url(channel_id):
-    """Fetch the latest video URL from a YouTube channel using the YouTube API."""
-    url = f"https://www.googleapis.com/youtube/v3/search?key={YOUTUBE_API_KEY}&channelId={channel_id}&part=snippet,id&order=date&maxResults=1"
+def get_playlist_videos(playlist_id):
+    """Fetch all video URLs from a YouTube playlist."""
+    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=10&key={YOUTUBE_API_KEY}"
 
     try:
         response = requests.get(url)
         data = response.json()
 
         if "items" in data and len(data["items"]) > 0:
-            video_id = data["items"][0]["id"].get("videoId")
-            if video_id:
-                return f"https://www.youtube.com/watch?v={video_id}"
+            video_urls = [f"https://www.youtube.com/watch?v={item['snippet']['resourceId']['videoId']}" for item in data["items"]]
+            return video_urls
     except Exception as e:
-        print(f"Error fetching latest video: {e}")
+        print(f"Error fetching playlist videos: {e}")
 
     return None
 
@@ -44,7 +43,6 @@ def get_audio_url(video_url):
     """Extract the direct audio URL from a YouTube video using yt-dlp."""
     command = [
         "yt-dlp",
-        "--cookies", "/mnt/data/cookies.txt",  # Using cookies.txt for authentication
         "-f", "bestaudio",
         "-g", video_url
     ]
@@ -57,14 +55,15 @@ def get_audio_url(video_url):
         print(f"Error extracting audio URL: {e}")
         return None
 
-def refresh_stream_url():
-    """Refresh audio stream URLs every 30 minutes."""
+def refresh_stream_urls():
+    """Refresh audio stream URLs every 30 minutes by cycling through the playlist."""
     while True:
         with cache_lock:
-            for station, channel_id in YOUTUBE_CHANNELS.items():
-                video_url = get_latest_video_url(channel_id)
-                if video_url:
-                    audio_url = get_audio_url(video_url)
+            for station, playlist_id in YOUTUBE_PLAYLISTS.items():
+                video_urls = get_playlist_videos(playlist_id)
+                if video_urls:
+                    selected_video = random.choice(video_urls)  # Pick a random video from the playlist
+                    audio_url = get_audio_url(selected_video)
                     if audio_url:
                         stream_cache[station] = audio_url
                         print(f"Updated stream URL for {station}: {audio_url}")
@@ -80,11 +79,12 @@ def generate_stream(station_name):
         if not stream_url:
             print(f"No valid stream URL for {station_name}, fetching a new one...")
             with cache_lock:
-                channel_id = YOUTUBE_CHANNELS.get(station_name)
-                if channel_id:
-                    video_url = get_latest_video_url(channel_id)
-                    if video_url:
-                        stream_url = get_audio_url(video_url)
+                playlist_id = YOUTUBE_PLAYLISTS.get(station_name)
+                if playlist_id:
+                    video_urls = get_playlist_videos(playlist_id)
+                    if video_urls:
+                        selected_video = random.choice(video_urls)
+                        stream_url = get_audio_url(selected_video)
                         if stream_url:
                             stream_cache[station_name] = stream_url
 
@@ -113,13 +113,13 @@ def generate_stream(station_name):
 
 @app.route("/play/<station_name>")
 def stream(station_name):
-    if station_name not in YOUTUBE_CHANNELS:
+    if station_name not in YOUTUBE_PLAYLISTS:
         return jsonify({"error": "Station not found"}), 404
 
     return Response(generate_stream(station_name), mimetype="audio/mpeg")
 
 # Start the URL refresher thread
-threading.Thread(target=refresh_stream_url, daemon=True).start()
+threading.Thread(target=refresh_stream_urls, daemon=True).start()
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8000, debug=True)
