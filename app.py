@@ -1,8 +1,16 @@
+import os
 import subprocess
 import time
 import threading
+import requests
 from flask import Flask, Response, jsonify
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
+
+# Flask app setup
 app = Flask(__name__)
 
 # Mapping of channel names to YouTube Channel IDs
@@ -15,36 +23,32 @@ YOUTUBE_CHANNELS = {
 stream_cache = {}
 cache_lock = threading.Lock()
 
-# Path to cookies file
-COOKIES_FILE = "/mnt/data/cookies.txt"
-
 def get_latest_video_url(channel_id):
-    """Fetch the latest video URL from a YouTube channel."""
-    command = [
-        "yt-dlp",
-        "--cookies", COOKIES_FILE,  # Include cookies for authentication
-        "--extract-flat", "true",  # Fetch metadata only
-        "--playlist-end", "1",  # Get only the latest video
-        "-g", f"https://www.youtube.com/channel/{channel_id}"
-    ]
-    
+    """Fetch the latest video URL from a YouTube channel using the YouTube API."""
+    url = f"https://www.googleapis.com/youtube/v3/search?key={YOUTUBE_API_KEY}&channelId={channel_id}&part=snippet,id&order=date&maxResults=1"
+
     try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        video_url = result.stdout.strip()
-        return video_url if video_url else None
-    except subprocess.CalledProcessError as e:
+        response = requests.get(url)
+        data = response.json()
+
+        if "items" in data and len(data["items"]) > 0:
+            video_id = data["items"][0]["id"].get("videoId")
+            if video_id:
+                return f"https://www.youtube.com/watch?v={video_id}"
+    except Exception as e:
         print(f"Error fetching latest video: {e}")
-        return None
+
+    return None
 
 def get_audio_url(video_url):
-    """Extract the direct audio URL from a YouTube video."""
+    """Extract the direct audio URL from a YouTube video using yt-dlp."""
     command = [
         "yt-dlp",
-        "--cookies", COOKIES_FILE,  # Include cookies for authentication
+        "--cookies", "/mnt/data/cookies.txt",  # Using cookies.txt for authentication
         "-f", "bestaudio",
         "-g", video_url
     ]
-    
+
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         audio_url = result.stdout.strip()
