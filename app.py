@@ -16,7 +16,10 @@ app = Flask(__name__)
 # Mapping of station names to YouTube playlist IDs
 YOUTUBE_PLAYLISTS = {
     "entri_app": "PL4pF7EMEu-ScQdLg_sFdMKAtYX5xX-Ec1",
-    "media_one": "PLxFIR7FGtGJ9T9zvI3oQGZKQZR1PvBziX"
+    "vallathoru_katha": "PLLSiSzpILVXmTXgDdM1FXNZVyTz_Nca52",
+    "zaytuna_2k25": "PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck",
+    "modern_history": "PLMDetQy00TVleGpEtzwkA0rl6Hkruz9XX",
+    "seera_malayalam": "PLEMT7g5NsFuULZoe2U4p8LMYGo2MCFYWt"
 }
 
 # Cache to store playlist videos
