@@ -24,7 +24,7 @@ stream_cache = {}
 cache_lock = threading.Lock()
 
 def get_playlist_videos(playlist_id):
-    """Fetch all video URLs from a YouTube playlist."""
+    """Fetch all video URLs from a YouTube playlist, sorted by newest first."""
     url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=10&key={YOUTUBE_API_KEY}"
 
     try:
@@ -32,7 +32,13 @@ def get_playlist_videos(playlist_id):
         data = response.json()
 
         if "items" in data and len(data["items"]) > 0:
-            video_urls = [f"https://www.youtube.com/watch?v={item['snippet']['resourceId']['videoId']}" for item in data["items"]]
+            video_items = data["items"]
+
+            # Sort by published time (latest first)
+            video_items.sort(key=lambda x: x["snippet"]["publishedAt"], reverse=True)
+
+            # Get video URLs
+            video_urls = [f"https://www.youtube.com/watch?v={item['snippet']['resourceId']['videoId']}" for item in video_items]
             return video_urls
     except Exception as e:
         print(f"Error fetching playlist videos: {e}")
@@ -63,8 +69,17 @@ def refresh_stream_urls():
             for station, playlist_id in YOUTUBE_PLAYLISTS.items():
                 video_urls = get_playlist_videos(playlist_id)
                 if video_urls:
-                    selected_video = random.choice(video_urls)  # Pick a random video from the playlist
+                    latest_video = video_urls[0]  # First video (latest added)
+                    remaining_videos = video_urls[1:]  # The rest of the videos
+                    random.shuffle(remaining_videos)  # Shuffle remaining videos
+
+                    # Combine latest video with shuffled ones
+                    ordered_videos = [latest_video] + remaining_videos
+
+                    # Pick the first in the new order
+                    selected_video = ordered_videos[0]
                     audio_url = extract_audio_url(selected_video)
+
                     if audio_url:
                         stream_cache[station] = audio_url
                         print(f"Updated stream URL for {station}: {audio_url}")
