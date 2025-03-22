@@ -7,6 +7,9 @@ WORKDIR /app
 # Install FFmpeg
 RUN apt-get update && apt-get install -y ffmpeg
 
+# Upgrade pip before installing dependencies
+RUN pip install --upgrade pip
+
 # Copy the application files to the container
 COPY . /app
 
