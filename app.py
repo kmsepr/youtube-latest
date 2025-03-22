@@ -111,15 +111,15 @@ def generate_stream(station_name):
         for stream_url in stream_urls:
             print(f"Streaming from: {stream_url}")
 
-process = subprocess.Popen(
-    ["ffmpeg", "-re", "-i", stream_url,
-     "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1",  # Force mono (-ac 1)
-     "-f", "mp3", "-"],
-    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
-)
+            process = subprocess.Popen(
+                ["ffmpeg", "-re", "-i", stream_url,
+                 "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1",  # Force mono (-ac 1)
+                 "-f", "mp3", "-"],
+                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
+            )
 
-try:
-for chunk in iter(lambda: process.stdout.read(8192), b""):
+            try:
+                for chunk in iter(lambda: process.stdout.read(8192), b""):
                     yield chunk
             except (GeneratorExit, Exception):
                 print(f"Stream error for {station_name}, switching source...")
