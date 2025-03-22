@@ -22,30 +22,31 @@ YOUTUBE_PLAYLISTS = {
 }
 
 # Caches
-stream_cache = {}  # Stores a single audio URL per station
+stream_cache = {}  # Stores the latest audio URL per station
 failed_videos = set()  # Tracks failed video URLs
 cache_lock = threading.Lock()
 
 def get_playlist_videos(playlist_id):
     """Fetch videos from a YouTube playlist and return the latest one."""
     url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=1&key={YOUTUBE_API_KEY}"
-    
+
     try:
         response = requests.get(url)
         data = response.json()
 
-        if "items" in data:
-            latest_video_id = data["items"][0]["snippet"]["resourceId"]["videoId"]
-            return f"https://www.youtube.com/watch?v={latest_video_id}"
-        else:
-            print(f"Error fetching playlist {playlist_id}: {data}")
-    
+        if "error" in data:
+            print(f"API Error: {data['error']['message']}")
+            return None
+
+        if "items" in data and data["items"]:
+            return f"https://www.youtube.com/watch?v={data['items'][0]['snippet']['resourceId']['videoId']}"
+
     except Exception as e:
         print(f"Error fetching playlist videos: {e}")
-    
+
     return None
 
-def extract_audio_url(video_url):
+def extract_audio_url(video_url, retries=3):
     """Extract direct audio URL using yt-dlp."""
     command = [
         "yt-dlp",
@@ -53,19 +54,16 @@ def extract_audio_url(video_url):
         "-f", "bestaudio",
         "-g", video_url
     ]
-    print(f"Running yt-dlp for: {video_url}")  # Debugging
 
-    try:
-        result = subprocess.run(command, capture_output=True, text=True, check=True)
-        audio_url = result.stdout.strip()
-        if audio_url:
-            print(f"Extracted URL: {audio_url}")
-            return audio_url
-        else:
-            print(f"yt-dlp returned empty output for {video_url}")
-    
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to extract audio: {e}")
+    for attempt in range(retries):
+        try:
+            result = subprocess.run(command, capture_output=True, text=True, check=True)
+            audio_url = result.stdout.strip()
+            if audio_url:
+                return audio_url
+        except subprocess.CalledProcessError:
+            print(f"yt-dlp failed for {video_url}, attempt {attempt + 1}")
+        time.sleep(2)
 
     failed_videos.add(video_url)
     return None
@@ -84,7 +82,7 @@ def refresh_stream_urls():
                 audio_url = extract_audio_url(latest_video)
 
                 if audio_url:
-                    stream_cache[station] = audio_url  # Store only the latest video's audio URL
+                    stream_cache[station] = audio_url
                     print(f"Updated cache for {station}: {audio_url}")
 
         time.sleep(1800)  # Refresh every 30 minutes
@@ -98,9 +96,7 @@ def generate_stream(station_name):
         if not stream_url:
             print(f"No valid stream URL for {station_name}, retrying in 10s...")
             time.sleep(10)
-            continue  # Retry after 10s
-
-        print(f"Streaming from: {stream_url}")
+            continue
 
         process = subprocess.Popen(
             ["ffmpeg", "-re", "-i", stream_url,
@@ -112,11 +108,10 @@ def generate_stream(station_name):
         try:
             for chunk in iter(lambda: process.stdout.read(8192), b""):
                 yield chunk
-        except (GeneratorExit, Exception):
-            print(f"Stream error for {station_name}, restarting stream...")
+        except Exception:
             process.kill()
+            print(f"Stream failed for {station_name}, retrying in 5 seconds...")
             time.sleep(5)
-            continue
 
 @app.route("/play/<station_name>")
 def stream(station_name):
