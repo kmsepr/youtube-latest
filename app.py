@@ -2,7 +2,6 @@ import os
 import subprocess
 import time
 import threading
-import random
 import requests
 from flask import Flask, Response, jsonify
 from dotenv import load_dotenv
@@ -23,34 +22,28 @@ YOUTUBE_PLAYLISTS = {
 }
 
 # Caches
-stream_cache = {}  # Stores multiple URLs per station
+stream_cache = {}  # Stores a single audio URL per station
 failed_videos = set()  # Tracks failed video URLs
 cache_lock = threading.Lock()
 
 def get_playlist_videos(playlist_id):
-    """Fetch videos from a YouTube playlist."""
-    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=10&key={YOUTUBE_API_KEY}"
+    """Fetch videos from a YouTube playlist and return the latest one."""
+    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=1&key={YOUTUBE_API_KEY}"
     
     try:
         response = requests.get(url)
         data = response.json()
 
         if "items" in data:
-            video_items = data["items"]
-
-            # Sort videos by published date
-            video_items.sort(key=lambda x: x["snippet"].get("publishedAt", ""), reverse=True)
-
-            # Extract video URLs
-            video_urls = [f"https://www.youtube.com/watch?v={item['snippet']['resourceId']['videoId']}" for item in video_items]
-            return video_urls
+            latest_video_id = data["items"][0]["snippet"]["resourceId"]["videoId"]
+            return f"https://www.youtube.com/watch?v={latest_video_id}"
         else:
             print(f"Error fetching playlist {playlist_id}: {data}")
     
     except Exception as e:
         print(f"Error fetching playlist videos: {e}")
     
-    return []
+    return None
 
 def extract_audio_url(video_url):
     """Extract direct audio URL using yt-dlp."""
@@ -82,60 +75,48 @@ def refresh_stream_urls():
     while True:
         with cache_lock:
             for station, playlist_id in YOUTUBE_PLAYLISTS.items():
-                video_urls = get_playlist_videos(playlist_id)
-                
-                # Remove failed videos
-                video_urls = [v for v in video_urls if v not in failed_videos]
+                latest_video = get_playlist_videos(playlist_id)
 
-                if not video_urls:
-                    print(f"No valid videos left for {station}, skipping...")
+                if not latest_video or latest_video in failed_videos:
+                    print(f"No valid video for {station}, skipping...")
                     continue
 
-                latest_video = video_urls[0]
-                remaining_videos = video_urls[1:]
-                random.shuffle(remaining_videos)
+                audio_url = extract_audio_url(latest_video)
 
-                ordered_videos = [latest_video] + remaining_videos[:4]  # Keep 5 videos
-                audio_urls = [extract_audio_url(v) for v in ordered_videos if v]
-
-                # Remove None values
-                audio_urls = [url for url in audio_urls if url]
-
-                if audio_urls:
-                    stream_cache[station] = audio_urls
-                    print(f"Updated cache for {station}: {audio_urls}")
+                if audio_url:
+                    stream_cache[station] = audio_url  # Store only the latest video's audio URL
+                    print(f"Updated cache for {station}: {audio_url}")
 
         time.sleep(1800)  # Refresh every 30 minutes
 
 def generate_stream(station_name):
-    """Continuously stream audio from a cached list of URLs."""
+    """Continuously stream audio from the cached URL."""
     while True:
         with cache_lock:
-            stream_urls = [url for url in stream_cache.get(station_name, []) if url]  # Remove None values
+            stream_url = stream_cache.get(station_name)
 
-        if not stream_urls:
-            print(f"No valid stream URLs for {station_name}, retrying in 10s...")
+        if not stream_url:
+            print(f"No valid stream URL for {station_name}, retrying in 10s...")
             time.sleep(10)
             continue  # Retry after 10s
 
-        for stream_url in stream_urls:
-            print(f"Streaming from: {stream_url}")
+        print(f"Streaming from: {stream_url}")
 
-            process = subprocess.Popen(
-                ["ffmpeg", "-re", "-i", stream_url,
-                 "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1",
-                 "-f", "mp3", "-"],
-                stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
-            )
+        process = subprocess.Popen(
+            ["ffmpeg", "-re", "-i", stream_url,
+             "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1",
+             "-f", "mp3", "-"],
+            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
+        )
 
-            try:
-                for chunk in iter(lambda: process.stdout.read(8192), b""):
-                    yield chunk
-            except (GeneratorExit, Exception):
-                print(f"Stream error for {station_name}, switching source...")
-                process.kill()
-                time.sleep(5)
-                continue
+        try:
+            for chunk in iter(lambda: process.stdout.read(8192), b""):
+                yield chunk
+        except (GeneratorExit, Exception):
+            print(f"Stream error for {station_name}, restarting stream...")
+            process.kill()
+            time.sleep(5)
+            continue
 
 @app.route("/play/<station_name>")
 def stream(station_name):
