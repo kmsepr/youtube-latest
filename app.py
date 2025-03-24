@@ -14,7 +14,7 @@ app = Flask(__name__)
 
 # Station-to-playlist mapping
 YOUTUBE_PLAYLISTS = {
-    "entri_app": "PLjETElbIubztNTHgjDqi9ob7U_TcqxYwY",
+    "studyiq_recent": "PLMDetQy00TVnZIvklM-3lPLjBmZe2yj7z",
     "vallathoru_katha": "PLLSiSzpILVXmTXgDdM1FXNZVyTz_Nca52",
     "zaytuna_2k25": "PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck",
     "modern_history": "PLMDetQy00TVleGpEtzwkA0rl6Hkruz9XX",
