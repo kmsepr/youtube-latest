@@ -20,6 +20,8 @@ YOUTUBE_PLAYLISTS = {
     "modern_history": "PLMDetQy00TVleGpEtzwkA0rl6Hkruz9XX",
     "seera_malayalam": "PLEMT7g5NsFuULZoe2U4p8LMYGo2MCFYWt"
 "zamzam_academy": "PLTgDm4XwxaRL88bIXJsBxj6hqJTCqIFya"
+"entri_ca": "PLYKzjRvMAyciPNzy1YbHWkdweksV5uvbx"
+
 
 
 }
