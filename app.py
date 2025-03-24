@@ -18,8 +18,8 @@ YOUTUBE_PLAYLISTS = {
     "vallathoru_katha": "PLLSiSzpILVXmTXgDdM1FXNZVyTz_Nca52",
     "zaytuna_2k25": "PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck",
     "modern_history": "PLMDetQy00TVleGpEtzwkA0rl6Hkruz9XX",
-    "seera_malayalam": "PLEMT7g5NsFuULZoe2U4p8LMYGo2MCFYWt"
-    "zamzam_academy": "PLTgDm4XwxaRL88bIXJsBxj6hqJTCqIFya"
+    "seera_malayalam": "PLEMT7g5NsFuULZoe2U4p8LMYGo2MCFYWt",
+    "zamzam_academy": "PLTgDm4XwxaRL88bIXJsBxj6hqJTCqIFya",
     "entri_ca": "PLYKzjRvMAyciPNzy1YbHWkdweksV5uvbx"
 
 }
