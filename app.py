@@ -2,6 +2,7 @@ import os
 import subprocess
 import time
 import threading
+import random
 import requests
 from flask import Flask, Response, jsonify
 from dotenv import load_dotenv
@@ -21,7 +22,6 @@ YOUTUBE_PLAYLISTS = {
     "seera_malayalam": "PLEMT7g5NsFuULZoe2U4p8LMYGo2MCFYWt",
     "unacademy_newspaper": "PLJxZBt-LTVo-j3UilMmrcTBxY_U-XS6Ti",
     "entri_ca": "PLYKzjRvMAyciPNzy1YbHWkdweksV5uvbx"
-
 }
 
 # Caches
@@ -30,16 +30,18 @@ failed_videos = set()  # Tracks failed video URLs
 cache_lock = threading.Lock()
 
 def get_playlist_videos(playlist_id):
-    """Fetch multiple videos from a YouTube playlist and return the first working one."""
-    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=5&key={YOUTUBE_API_KEY}"
+    """Fetch multiple videos from a YouTube playlist and return a random working one."""
+    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=10&key={YOUTUBE_API_KEY}"
     
     try:
         response = requests.get(url)
         data = response.json()
 
         if "items" in data:
-            for item in data["items"]:
-                video_id = item["snippet"]["resourceId"]["videoId"]
+            video_ids = [item["snippet"]["resourceId"]["videoId"] for item in data["items"]]
+            random.shuffle(video_ids)  # Shuffle the list to pick a random video
+
+            for video_id in video_ids:
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
                 if video_url not in failed_videos:
                     return video_url
@@ -75,13 +77,10 @@ def extract_audio_url(video_url):
     return None
 
 def refresh_stream_urls():
-    """Refresh the audio URLs every 3 hours instead of 30 minutes."""
+    """Refresh the audio URLs every 30 minutes or when expired."""
     while True:
         with cache_lock:
             for station, playlist_id in YOUTUBE_PLAYLISTS.items():
-                if station in stream_cache:  # Skip if stream is still working
-                    continue
-
                 latest_video = get_playlist_videos(playlist_id)
 
                 if not latest_video or latest_video in failed_videos:
@@ -94,16 +93,17 @@ def refresh_stream_urls():
                     stream_cache[station] = audio_url  # Store only the latest video's audio URL
                     print(f"Updated cache for {station}: {audio_url}")
 
-        time.sleep(10800)  # Refresh every 3 hours (10800 seconds)
+        time.sleep(1800)  # Refresh every 30 minutes (1800 seconds)
 
 def generate_stream(station_name):
-    """Continuously stream audio from the cached URL."""
+    """Continuously stream audio and detect when to refresh the URL."""
+    last_audio_url = None
     while True:
         with cache_lock:
             stream_url = stream_cache.get(station_name)
 
-        if not stream_url:
-            print(f"No valid stream URL for {station_name}, fetching new one...")
+        if not stream_url or stream_url == last_audio_url:
+            print(f"No valid stream URL for {station_name} or stream is looping. Fetching new one...")
             latest_video = get_playlist_videos(YOUTUBE_PLAYLISTS[station_name])
             if latest_video:
                 stream_url = extract_audio_url(latest_video)
@@ -116,11 +116,12 @@ def generate_stream(station_name):
             time.sleep(10)
             continue
 
+        last_audio_url = stream_url  # Store last used URL
         print(f"Streaming from: {stream_url}")
 
         process = subprocess.Popen(
             ["ffmpeg", "-re", "-i", stream_url,
-             "-vn", "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1",
+             "-vn", "-acodec", "libmp3lame", "-b:a", "16k", "-ac", "1",
              "-f", "mp3", "-"],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
         )
