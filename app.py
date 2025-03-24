@@ -19,10 +19,8 @@ YOUTUBE_PLAYLISTS = {
     "zaytuna_2k25": "PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck",
     "modern_history": "PLMDetQy00TVleGpEtzwkA0rl6Hkruz9XX",
     "seera_malayalam": "PLEMT7g5NsFuULZoe2U4p8LMYGo2MCFYWt"
-"zamzam_academy": "PLTgDm4XwxaRL88bIXJsBxj6hqJTCqIFya"
-"entri_ca": "PLYKzjRvMAyciPNzy1YbHWkdweksV5uvbx"
-
-
+    "zamzam_academy": "PLTgDm4XwxaRL88bIXJsBxj6hqJTCqIFya"
+    "entri_ca": "PLYKzjRvMAyciPNzy1YbHWkdweksV5uvbx"
 
 }
 
