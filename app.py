@@ -10,7 +10,6 @@ app = Flask(__name__)
 # 📌 Hardcoded YouTube Video Links (Manually Updated)
 STATIONS = {
     "modern_history": [
-        "https://www.youtube.com/watch?v=ASnGYrBanlA",
         "https://www.youtube.com/watch?v=PrUn1sf3WFk",
         "https://www.youtube.com/watch?v=3Da14COqSwk",
         "https://www.youtube.com/watch?v=RE5Em_Hg7dA",
