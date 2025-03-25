@@ -9,17 +9,77 @@ app = Flask(__name__)
 
 # 📌 Hardcoded YouTube Video Links (Manually Updated)
 STATIONS = {
-    "studyiq_recent": [
-        "https://www.youtube.com/watch?v=abcd1234",
-        "https://www.youtube.com/watch?v=wxyz5678",
-        "https://www.youtube.com/watch?v=lmno9012"
+    "studyiq_modern_history": [
+        "https://www.youtube.com/watch?v=ASnGYrBanlA",
+"https://www.youtube.com/watch?v=PrUn1sf3WFk",
+"https://www.youtube.com/watch?v=3Da14COqSwk",
+"https://www.youtube.com/watch?v=RE5Em_Hg7dA",
+"https://www.youtube.com/watch?v=4nl1Z6xUOyY",
+"https://www.youtube.com/watch?v=rUUl5RUnQcw",
+"https://www.youtube.com/watch?v=_RnQCC6Df6Q",
+"https://www.youtube.com/watch?v=CAYIYngTRPE",
+"https://www.youtube.com/watch?v=v3KKpyDGNN4",
+"https://www.youtube.com/watch?v=YeS-tPwMtW0",
+"https://www.youtube.com/watch?v=kUv_7SNi600",
+"https://www.youtube.com/watch?v=fsiES3-Kpzg",
+"https://www.youtube.com/watch?v=chtF4uVVVpU",
+"https://www.youtube.com/watch?v=mD6ywrXmC8Y",
+"https://www.youtube.com/watch?v=iALuBSFRJl4"
     ],
-    "vallathoru_katha": [
-        "https://www.youtube.com/watch?v=qrst3456",
-        "https://www.youtube.com/watch?v=uvwx7890"
+    "studyiq_history": [
+        "https://www.youtube.com/watch?v=XbHmJ-qvamo",
+"https://www.youtube.com/watch?v=D1k5E62J8Ts",
+"https://www.youtube.com/watch?v=TQ3RVpVUkKM",
+"https://www.youtube.com/watch?v=t4akLJPv0Io",
+"https://www.youtube.com/watch?v=DI15B8TVRIA",
+"https://www.youtube.com/watch?v=JpDr0htWizY",
+"https://www.youtube.com/watch?v=EZngWp2LR0c",
+"https://www.youtube.com/watch?v=4Cv7h3tXNq8",
+"https://www.youtube.com/watch?v=L_Hwx8U3Dj8",
+"https://www.youtube.com/watch?v=Nip4EQnLzyE",
+"https://www.youtube.com/watch?v=K27eTLnSobQ",
+"https://www.youtube.com/watch?v=GtiSwEtnYuw",
+"https://www.youtube.com/watch?v=IljBwgJ2yYU",
+"https://www.youtube.com/watch?v=8jNQEeVd5vg",
+"https://www.youtube.com/watch?v=IsNFikjRVsI",
+"https://www.youtube.com/watch?v=wEOEjyCsat4",
+"https://www.youtube.com/watch?v=DpN4h_5qqiA",
+"https://www.youtube.com/watch?v=2aG1OkuwSvQ",
+"https://www.youtube.com/watch?v=anV-TTWV0l8",
+"https://www.youtube.com/watch?v=d3zR0hAx99U",
+"https://www.youtube.com/watch?v=EXdgtjBM9Tw",
+"https://www.youtube.com/watch?v=edl1h_shi4w",
+"https://www.youtube.com/watch?v=ySmHYmbwZf8",
+"https://www.youtube.com/watch?v=Et4re3pGMkE",
+"https://www.youtube.com/watch?v=uszABNRQ56Q",
+"https://www.youtube.com/watch?v=qpKILrroPUg",
+"https://www.youtube.com/watch?v=FOziQo-BHgA",
+"https://www.youtube.com/watch?v=-QrPzhohCO0",
+"https://www.youtube.com/watch?v=vXqVlNCd074",
+"https://www.youtube.com/watch?v=xZXq5Fl9nyw",
+"https://www.youtube.com/watch?v=ggdtrQ5seB4",
+"https://www.youtube.com/watch?v=8sBRGHtljbY",
+"https://www.youtube.com/watch?v=x5szUdlDMnA",
+"https://www.youtube.com/watch?v=1sw_enRoDw0",
+"https://www.youtube.com/watch?v=yC4zRN96HFU",
+"https://www.youtube.com/watch?v=HF-uiMD1Fe4",
+"https://www.youtube.com/watch?v=4iZrt2u10I4",
+"https://www.youtube.com/watch?v=HaYpoc2uyWY",
+"https://www.youtube.com/watch?v=_QqdqCvQDGM",
+"https://www.youtube.com/watch?v=R8NIzJqYQtQ",
+"https://www.youtube.com/watch?v=gIr4m9Sgzz8",
+"https://www.youtube.com/watch?v=TNx93H1fUuQ",
+"https://www.youtube.com/watch?v=5RksYnA4wTA"
     ],
     "zaytuna_2k25": [
-        "https://www.youtube.com/watch?v=mnop1234"
+        "https://www.youtube.com/watch?v=NHO6loh7WAQ",
+"https://www.youtube.com/watch?v=5PsYf6qrj08",
+"https://www.youtube.com/watch?v=GaPs57m2jgs",
+"https://www.youtube.com/watch?v=hueTpFFhhUo",
+"https://www.youtube.com/watch?v=e1X4Jnwsi4Q",
+"https://www.youtube.com/watch?v=WUwyatwM8tI",
+"https://www.youtube.com/watch?v=7ICL6iteYy4",
+"https://www.youtube.com/watch?v=MCHkjxghMtU"
     ],
     "seera_malayalam": [
         "https://www.youtube.com/watch?v=HLPDazstsVg",
@@ -161,7 +221,7 @@ def refresh_stream_urls():
                     stream_cache[station] = audio_url
                     print(f"Updated cache for {station}: {audio_url}")
 
-        time.sleep(60)  # Refresh URLs every 60 seconds
+        time.sleep(1800)  # Refresh URLs every 60 seconds
 
 def detect_looping(process):
     """Detect looping by checking the current playback time."""
