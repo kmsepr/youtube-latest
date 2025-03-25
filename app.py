@@ -221,8 +221,7 @@ def refresh_stream_urls():
                     stream_cache[station] = audio_url
                     print(f"Updated cache for {station}: {audio_url}")
 
-        time.sleep(1800)  # Refresh URLs every 60 seconds
-
+        time.sleep(1800)  # Refresh URLs every 30 minutes
 def detect_looping(process):
     """Detect looping by checking the current playback time."""
     last_position = None
