@@ -2,70 +2,133 @@ import os
 import subprocess
 import time
 import threading
-import requests
+import random
 from flask import Flask, Response, jsonify
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
-YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 
 app = Flask(__name__)
 
-YOUTUBE_PLAYLISTS = {
-    "studyiq_recent": "PLMDetQy00TVnZIvklM-3lPLjBmZe2yj7z",
-    "vallathoru_katha": "PLLSiSzpILVXmTXgDdM1FXNZVyTz_Nca52",
-    "zaytuna_2k25": "PLGwUmcHSMM44vCWbO_LSLfFHKwZABQ3Ck",
-    "modern_history": "PLMDetQy00TVleGpEtzwkA0rl6Hkruz9XX",
-    "seera_malayalam": "PLEMT7g5NsFuULZoe2U4p8LMYGo2MCFYWt",
-    "unacademy_newspaper": "PLJxZBt-LTVo-j3UilMmrcTBxY_U-XS6Ti",
-    "entri_ca": "PLYKzjRvMAyciPNzy1YbHWkdweksV5uvbx"
+# 📌 Hardcoded YouTube Video Links (Manually Updated)
+STATIONS = {
+    "studyiq_recent": [
+        "https://www.youtube.com/watch?v=abcd1234",
+        "https://www.youtube.com/watch?v=wxyz5678",
+        "https://www.youtube.com/watch?v=lmno9012"
+    ],
+    "vallathoru_katha": [
+        "https://www.youtube.com/watch?v=qrst3456",
+        "https://www.youtube.com/watch?v=uvwx7890"
+    ],
+    "zaytuna_2k25": [
+        "https://www.youtube.com/watch?v=mnop1234"
+    ],
+    "seera_malayalam": [
+        "https://www.youtube.com/watch?v=HLPDazstsVg",
+        "https://www.youtube.com/watch?v=m5W18O-dzcE",
+        "https://www.youtube.com/watch?v=4vqYeUMSCdo",
+        "https://www.youtube.com/watch?v=jFVmwbOsF0A",
+        "https://www.youtube.com/watch?v=_a_6ZqS_D7w",
+        "https://www.youtube.com/watch?v=Y4LQcqAIm80",
+        "https://www.youtube.com/watch?v=ZVPEQ7dm5T4",
+        "https://www.youtube.com/watch?v=8EYVS5q2kG4",
+        "https://www.youtube.com/watch?v=H1wLLSRk5wc",
+        "https://www.youtube.com/watch?v=KQWsa8xrNSA",
+        "https://www.youtube.com/watch?v=Myn_UJluFds",
+        "https://www.youtube.com/watch?v=CNgikkbqs-Y",
+        "https://www.youtube.com/watch?v=ANN9q_L-K5U",
+        "https://www.youtube.com/watch?v=gn76G53GEEg",
+        "https://www.youtube.com/watch?v=swb77PkXgv4",
+        "https://www.youtube.com/watch?v=0LL6QBX1pt0",
+        "https://www.youtube.com/watch?v=PPJFWjJlktc",
+        "https://www.youtube.com/watch?v=5tVrJcXMEkg",
+        "https://www.youtube.com/watch?v=IAMlbfZzmWY",
+        "https://www.youtube.com/watch?v=Sgkyj8Qvz7g",
+        "https://www.youtube.com/watch?v=gSZG93h_dD4",
+        "https://www.youtube.com/watch?v=pqaadVW7LNo",
+        "https://www.youtube.com/watch?v=qc-HAE3zvcg",
+        "https://www.youtube.com/watch?v=9ncceOVjyPs",
+        "https://www.youtube.com/watch?v=JNPd83D4IVM",
+        "https://www.youtube.com/watch?v=keFyTf2Sjug",
+        "https://www.youtube.com/watch?v=Z_hGGve9Pp4",
+        "https://www.youtube.com/watch?v=IOG1Kg4k9iE",
+        "https://www.youtube.com/watch?v=hVMlMwSwJvU",
+        "https://www.youtube.com/watch?v=Ozo-DQXHVhc",
+        "https://www.youtube.com/watch?v=BtpbKO5N7xU",
+        "https://www.youtube.com/watch?v=KfUKded8o0I",
+        "https://www.youtube.com/watch?v=bDd8QjUObNk",
+        "https://www.youtube.com/watch?v=Y84coAaQUc4",
+        "https://www.youtube.com/watch?v=myYEf6TE5y4",
+        "https://www.youtube.com/watch?v=pGwpFARV4-8",
+        "https://www.youtube.com/watch?v=7RIvHRvgqvQ",
+        "https://www.youtube.com/watch?v=8BoHLfPCSJs",
+        "https://www.youtube.com/watch?v=xmrEgcA4vuw",
+        "https://www.youtube.com/watch?v=p2BnQnBLBqA",
+        "https://www.youtube.com/watch?v=Pz5Kt_fx284",
+        "https://www.youtube.com/watch?v=M-YyCXkeOp0",
+        "https://www.youtube.com/watch?v=BSBu9uIN7mw",
+        "https://www.youtube.com/watch?v=L3vQzcWExF8",
+        "https://www.youtube.com/watch?v=y3rs0UX3ZzM",
+        "https://www.youtube.com/watch?v=nrPFIwMa7Ko",
+        "https://www.youtube.com/watch?v=lCI05atVAEc",
+        "https://www.youtube.com/watch?v=GejhjQjDiLI",
+        "https://www.youtube.com/watch?v=XPvQ8u7Bo5M",
+        "https://www.youtube.com/watch?v=pnbAbFADFNw",
+        "https://www.youtube.com/watch?v=IBu7SEZkesU",
+        "https://www.youtube.com/watch?v=xSB7uefOdZw",
+        "https://www.youtube.com/watch?v=LeyUsBHJQ58",
+        "https://www.youtube.com/watch?v=x5oVHFayUQk",
+        "https://www.youtube.com/watch?v=5LvT-x1DGkQ",
+        "https://www.youtube.com/watch?v=9HaGVVAVYTc",
+        "https://www.youtube.com/watch?v=1vK5Q0aQTc0",
+        "https://www.youtube.com/watch?v=XLYNnWtCxLI",
+        "https://www.youtube.com/watch?v=QjcPveLmWQ0",
+        "https://www.youtube.com/watch?v=qSsfjsWlKpA",
+        "https://www.youtube.com/watch?v=L-XeIe12wjs",
+        "https://www.youtube.com/watch?v=vMn2e7_13uE",
+        "https://www.youtube.com/watch?v=YvJUAftqjbg",
+        "https://www.youtube.com/watch?v=GcDpl8OfDWo",
+        "https://www.youtube.com/watch?v=BrCXaTYMm3U",
+        "https://www.youtube.com/watch?v=oZ7Hpnt4LsA",
+        "https://www.youtube.com/watch?v=tDIUwbadTNQ",
+        "https://www.youtube.com/watch?v=G85iLYune9k",
+        "https://www.youtube.com/watch?v=I7mEnM3STEs",
+        "https://www.youtube.com/watch?v=8Y1j9a4p0WM",
+        "https://www.youtube.com/watch?v=s3Bh-c1sUqY",
+        "https://www.youtube.com/watch?v=xSfj9nYF1lE",
+        "https://www.youtube.com/watch?v=dVq4uR51pak",
+        "https://www.youtube.com/watch?v=YRDCheQggBs",
+        "https://www.youtube.com/watch?v=JubGnY05y2E",
+        "https://www.youtube.com/watch?v=ooL0dwED9ps",
+        "https://www.youtube.com/watch?v=yig9bhSTIGM",
+        "https://www.youtube.com/watch?v=fGrTAlEHrCo",
+        "https://www.youtube.com/watch?v=J-UI8rlsjjs",
+        "https://www.youtube.com/watch?v=seINc53QaRc",
+        "https://www.youtube.com/watch?v=wk5BoXefxi0",
+        "https://www.youtube.com/watch?v=70ZyBLGl0QM",
+        "https://www.youtube.com/watch?v=aKFXVvjNfS0",
+        "https://www.youtube.com/watch?v=25p49yXGBoU",
+        "https://www.youtube.com/watch?v=it5S3snmynk",
+        "https://www.youtube.com/watch?v=2Xg5LFjnC0s",
+        "https://www.youtube.com/watch?v=pMlzQjKkCNk",
+        "https://www.youtube.com/watch?v=jVXkUbxEWWk",
+        "https://www.youtube.com/watch?v=PGUjomCGD8E",
+        "https://www.youtube.com/watch?v=EDePFnWqQs8",
+        "https://www.youtube.com/watch?v=aPJ-H0Uv5E4",
+        "https://www.youtube.com/watch?v=JyA2nsCrgHI",
+        "https://www.youtube.com/watch?v=PC7X6chVtkc",
+        "https://www.youtube.com/watch?v=LVjjBBF2ZjA",
+        "https://www.youtube.com/watch?v=ELQ4GlaJIe4",
+        "https://www.youtube.com/watch?v=yYtbgfa4Ouc",
+        "https://www.youtube.com/watch?v=J5Ti5sOL-Ww",
+        "https://www.youtube.com/watch?v=p6LrJ8LLnfE",
+        "https://www.youtube.com/watch?v=uS86C68wYgI",
+        "https://www.youtube.com/watch?v=xrOEOz9UdEg",
+        "https://www.youtube.com/watch?v=HJMcmLEXQU4",
+        "https://www.youtube.com/watch?v=jG4V3BXBdfQ"
+    ]
 }
 
 stream_cache = {}
-failed_videos = set()
 cache_lock = threading.Lock()
-
-def get_playlist_videos(playlist_id):
-    """Fetch the latest non-live video from a YouTube playlist."""
-    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=5&key={YOUTUBE_API_KEY}"
-
-    try:
-        response = requests.get(url)
-        data = response.json()
-
-        if "items" in data:
-            for item in data["items"]:
-                video_id = item["snippet"]["resourceId"]["videoId"]
-                video_url = f"https://www.youtube.com/watch?v={video_id}"
-
-                if is_live_video(video_id):
-                    print(f"Skipping live video: {video_url}")
-                    continue
-
-                if video_url not in failed_videos:
-                    return video_url
-
-    except Exception as e:
-        print(f"Error fetching playlist videos: {e}")
-
-    return None
-
-def is_live_video(video_id):
-    """Check if a video is live."""
-    url = f"https://www.googleapis.com/youtube/v3/videos?part=snippet,liveStreamingDetails&id={video_id}&key={YOUTUBE_API_KEY}"
-    
-    try:
-        response = requests.get(url)
-        data = response.json()
-        
-        if "items" in data and len(data["items"]) > 0:
-            if "liveStreamingDetails" in data["items"][0]:
-                return True
-    except Exception as e:
-        print(f"Error checking live status: {e}")
-
-    return False
 
 def extract_audio_url(video_url):
     """Extract direct audio URL using yt-dlp."""
@@ -74,38 +137,31 @@ def extract_audio_url(video_url):
         "-f", "bestaudio",
         "-g", video_url
     ]
-    print(f"Running yt-dlp for: {video_url}")
+    print(f"Extracting audio from: {video_url}")
 
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         audio_url = result.stdout.strip()
         if audio_url:
-            print(f"Extracted URL: {audio_url}")
             return audio_url
     except subprocess.CalledProcessError as e:
         print(f"Failed to extract audio: {e}")
 
-    failed_videos.add(video_url)
     return None
 
 def refresh_stream_urls():
     """Refresh stream URLs when needed."""
     while True:
         with cache_lock:
-            for station, playlist_id in YOUTUBE_PLAYLISTS.items():
-                latest_video = get_playlist_videos(playlist_id)
-
-                if not latest_video or latest_video in failed_videos:
-                    print(f"No valid video for {station}, skipping...")
-                    continue
-
-                audio_url = extract_audio_url(latest_video)
+            for station, video_list in STATIONS.items():
+                video_url = random.choice(video_list)  # Pick a random video from the list
+                audio_url = extract_audio_url(video_url)
 
                 if audio_url:
                     stream_cache[station] = audio_url
                     print(f"Updated cache for {station}: {audio_url}")
 
-        time.sleep(30)  # Check every 30 seconds if refresh is needed
+        time.sleep(60)  # Refresh URLs every 60 seconds
 
 def detect_looping(process):
     """Detect looping by checking the current playback time."""
@@ -113,7 +169,6 @@ def detect_looping(process):
 
     while True:
         try:
-            # Get current playback position
             position_command = ["ffmpeg", "-i", "-", "-vn", "-af", "ashowinfo", "-f", "null", "-"]
             result = subprocess.run(position_command, capture_output=True, text=True, timeout=5)
 
@@ -137,20 +192,18 @@ def detect_looping(process):
 
 def generate_stream(station_name):
     """Continuously stream audio and refresh when looping is detected."""
-    last_audio_url = None
-
     while True:
         with cache_lock:
             stream_url = stream_cache.get(station_name)
 
         if not stream_url:
             print(f"Fetching new stream for {station_name}...")
-            latest_video = get_playlist_videos(YOUTUBE_PLAYLISTS[station_name])
-            if latest_video:
-                stream_url = extract_audio_url(latest_video)
-                if stream_url:
-                    with cache_lock:
-                        stream_cache[station_name] = stream_url
+            video_url = random.choice(STATIONS[station_name])
+            stream_url = extract_audio_url(video_url)
+
+            if stream_url:
+                with cache_lock:
+                    stream_cache[station_name] = stream_url
 
         if not stream_url:
             print(f"No valid stream URL for {station_name}, retrying in 10s...")
@@ -184,7 +237,7 @@ def generate_stream(station_name):
 
 @app.route("/play/<station_name>")
 def stream(station_name):
-    if station_name not in YOUTUBE_PLAYLISTS:
+    if station_name not in STATIONS:
         return jsonify({"error": "Station not found"}), 404
 
     return Response(generate_stream(station_name), mimetype="audio/mpeg")
