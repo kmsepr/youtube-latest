@@ -24,10 +24,9 @@ YOUTUBE_PLAYLISTS = {
 }
 
 # Caches
-stream_cache = {}  # Stores audio URLs
+stream_cache = {}  # Stores latest working audio URLs
 failed_videos = set()  # Tracks failed videos
 cache_lock = threading.Lock()
-
 
 def get_playlist_videos(playlist_id):
     """Fetch multiple videos from a YouTube playlist and return the first working one."""
@@ -49,11 +48,10 @@ def get_playlist_videos(playlist_id):
 
     return None
 
-
 def extract_audio_url(video_url):
     """Extract direct audio URL using yt-dlp."""
     command = [
-        "yt-dlp",
+        "yt-dlp", "--live-from-start",  # Handle live streams properly
         "--cookies", "/mnt/data/cookies.txt",
         "-f", "bestaudio",
         "-g", video_url
@@ -75,9 +73,8 @@ def extract_audio_url(video_url):
     failed_videos.add(video_url)
     return None
 
-
 def refresh_stream_urls():
-    """Refresh the audio URLs every 3 hours to prevent looping."""
+    """Refresh the audio URLs every 8 minutes to prevent looping."""
     while True:
         with cache_lock:
             for station, playlist_id in YOUTUBE_PLAYLISTS.items():
@@ -93,37 +90,41 @@ def refresh_stream_urls():
                     stream_cache[station] = audio_url  # Store only the latest video's audio URL
                     print(f"Updated cache for {station}: {audio_url}")
 
-        time.sleep(10800)  # Refresh every 3 hours (10800 seconds)
-
+        time.sleep(480)  # Refresh every 8 minutes (480 seconds)
 
 def generate_stream(station_name):
     """Continuously stream audio and refresh when looping is detected."""
     last_audio_url = None
+    last_fetch_time = time.time()
+
     while True:
         with cache_lock:
             stream_url = stream_cache.get(station_name)
 
-        if not stream_url or stream_url == last_audio_url:
-            print(f"No valid stream URL for {station_name} or stream is looping. Fetching new one...")
+        # Refresh URL every 8 minutes to prevent looping
+        if not stream_url or (time.time() - last_fetch_time > 480):  # 480s = 8 min
+            print(f"Refreshing stream URL for {station_name}...")
             latest_video = get_playlist_videos(YOUTUBE_PLAYLISTS[station_name])
             if latest_video:
                 stream_url = extract_audio_url(latest_video)
                 if stream_url:
                     with cache_lock:
                         stream_cache[station_name] = stream_url
+                    last_audio_url = stream_url
+                    last_fetch_time = time.time()
 
         if not stream_url:
             print(f"Still no valid stream URL for {station_name}, retrying in 10s...")
             time.sleep(10)
             continue
 
-        last_audio_url = stream_url  # Store last used URL
         print(f"Streaming from: {stream_url}")
 
         process = subprocess.Popen(
             [
                 "ffmpeg", "-reconnect", "1", "-reconnect_streamed", "1",
                 "-reconnect_delay_max", "10", "-fflags", "nobuffer", "-flags", "low_delay",
+                "-http_persistent", "0",  # Fix for YouTube disconnections
                 "-i", stream_url, "-vn", "-ac", "1", "-b:a", "40k", "-buffer_size", "1024k", "-f", "mp3", "-"
             ],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
@@ -138,14 +139,12 @@ def generate_stream(station_name):
             time.sleep(5)
             continue
 
-
 @app.route("/play/<station_name>")
 def stream(station_name):
     if station_name not in YOUTUBE_PLAYLISTS:
         return jsonify({"error": "Station not found"}), 404
 
     return Response(generate_stream(station_name), mimetype="audio/mpeg")
-
 
 # Start the background refresh thread
 threading.Thread(target=refresh_stream_urls, daemon=True).start()
