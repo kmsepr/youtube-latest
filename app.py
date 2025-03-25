@@ -7,7 +7,7 @@ from flask import Flask, Response, jsonify
 
 app = Flask(__name__)
 
-# 📌 Hardcoded YouTube Video Links (Manually Updated)
+# 📌 YouTube Video Links for Different Stations
 STATIONS = {
     "modern_history": [
         "https://www.youtube.com/watch?v=PrUn1sf3WFk",
@@ -22,12 +22,14 @@ STATIONS = {
 
 stream_cache = {}
 cache_lock = threading.Lock()
+CACHE_REFRESH_INTERVAL = 1500  # Refresh every 25 minutes
+
 
 def extract_audio_url(video_url):
-    """Extract direct audio URL using yt-dlp with format 91."""
+    """Extract direct audio URL using yt-dlp."""
     command = [
         "yt-dlp", "--cookies", "/mnt/data/cookies.txt",
-        "-f", "91", "-g", video_url
+        "-f", "bestaudio", "-g", video_url
     ]
     
     print(f"Extracting audio from: {video_url}")
@@ -48,22 +50,26 @@ def extract_audio_url(video_url):
 
     return None
 
+
 def refresh_stream_urls():
-    """Refresh stream URLs when needed."""
+    """Periodically update stream URLs."""
     while True:
         with cache_lock:
             for station, video_list in STATIONS.items():
-                video_url = random.choice(video_list)  # Pick a random video from the list
+                video_url = random.choice(video_list)
                 audio_url = extract_audio_url(video_url)
 
                 if audio_url:
                     stream_cache[station] = audio_url
                     print(f"Updated cache for {station}: {audio_url}")
+                else:
+                    print(f"Failed to refresh stream for {station}")
 
-        time.sleep(1800)  # Refresh URLs every 30 minutes
+        time.sleep(CACHE_REFRESH_INTERVAL)
+
 
 def generate_stream(station_name):
-    """Continuously stream audio."""
+    """Continuously stream audio with automatic refresh."""
     while True:
         with cache_lock:
             stream_url = stream_cache.get(station_name)
@@ -103,6 +109,7 @@ def generate_stream(station_name):
             time.sleep(5)
             continue
 
+
 @app.route("/play/<station_name>")
 def stream(station_name):
     if station_name not in STATIONS:
@@ -110,6 +117,8 @@ def stream(station_name):
 
     return Response(generate_stream(station_name), mimetype="audio/mpeg")
 
+
+# Start the background thread for refreshing URLs
 threading.Thread(target=refresh_stream_urls, daemon=True).start()
 
 if __name__ == "__main__":
