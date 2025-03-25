@@ -3,9 +3,11 @@ import subprocess
 import time
 import threading
 import random
+import logging
 from flask import Flask, Response, jsonify
 
 app = Flask(__name__)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 # 📌 YouTube Video Links for Different Stations
 STATIONS = {
@@ -32,22 +34,22 @@ def extract_audio_url(video_url):
         "-f", "bestaudio", "-g", video_url
     ]
     
-    print(f"Extracting audio from: {video_url}")
-
+    logging.info(f"Extracting audio from: {video_url}")
+    
     try:
         result = subprocess.run(command, capture_output=True, text=True, check=True)
         audio_url = result.stdout.strip()
         
         if audio_url:
-            print(f"Extracted URL: {audio_url}")
+            logging.info(f"Extracted URL: {audio_url}")
             return audio_url
         else:
-            print("Warning: No URL extracted!")
-            
+            logging.warning("Warning: No URL extracted!")
+    
     except subprocess.CalledProcessError as e:
-        print(f"Failed to extract audio: {e}")
-        print(f"yt-dlp stderr: {e.stderr}")
-
+        logging.error(f"Failed to extract audio: {e}")
+        logging.error(f"yt-dlp stderr: {e.stderr}")
+    
     return None
 
 
@@ -61,10 +63,10 @@ def refresh_stream_urls():
 
                 if audio_url:
                     stream_cache[station] = audio_url
-                    print(f"Updated cache for {station}: {audio_url}")
+                    logging.info(f"Updated cache for {station}: {audio_url}")
                 else:
-                    print(f"Failed to refresh stream for {station}")
-
+                    logging.warning(f"Failed to refresh stream for {station}")
+        
         time.sleep(CACHE_REFRESH_INTERVAL)
 
 
@@ -75,7 +77,7 @@ def generate_stream(station_name):
             stream_url = stream_cache.get(station_name)
 
         if not stream_url:
-            print(f"Fetching new stream for {station_name}...")
+            logging.info(f"Fetching new stream for {station_name}...")
             video_url = random.choice(STATIONS[station_name])
             stream_url = extract_audio_url(video_url)
 
@@ -84,18 +86,18 @@ def generate_stream(station_name):
                     stream_cache[station_name] = stream_url
 
         if not stream_url:
-            print(f"No valid stream URL for {station_name}, retrying in 10s...")
+            logging.warning(f"No valid stream URL for {station_name}, retrying in 10s...")
             time.sleep(10)
             continue
 
-        print(f"Streaming from: {stream_url}")
+        logging.info(f"Streaming from: {stream_url}")
 
         process = subprocess.Popen(
             [
                 "ffmpeg", "-reconnect", "1", "-reconnect_streamed", "1",
-                "-reconnect_delay_max", "10", "-fflags", "nobuffer", "-flags", "low_delay",
+                "-reconnect_delay_max", "5", "-fflags", "nobuffer", "-flags", "low_delay",
                 "-http_persistent", "0",  
-                "-i", stream_url, "-vn", "-ac", "1", "-b:a", "40k", "-buffer_size", "1024k", "-f", "mp3", "-"
+                "-i", stream_url, "-vn", "-ac", "1", "-b:a", "40k", "-buffer_size", "512k", "-f", "mp3", "-"
             ],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
         )
@@ -104,7 +106,7 @@ def generate_stream(station_name):
             for chunk in iter(lambda: process.stdout.read(8192), b""):
                 yield chunk
         except (GeneratorExit, Exception):
-            print(f"Stream error for {station_name}, restarting stream...")
+            logging.error(f"Stream error for {station_name}, restarting stream...")
             process.kill()
             time.sleep(5)
             continue
