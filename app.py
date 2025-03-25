@@ -2,7 +2,6 @@ import os
 import subprocess
 import time
 import threading
-import random
 import requests
 from flask import Flask, Response, jsonify
 from dotenv import load_dotenv
@@ -25,31 +24,31 @@ YOUTUBE_PLAYLISTS = {
 }
 
 # Caches
-stream_cache = {}  # Stores a single audio URL per station
-failed_videos = set()  # Tracks failed video URLs
+stream_cache = {}  # Stores audio URLs
+failed_videos = set()  # Tracks failed videos
 cache_lock = threading.Lock()
 
+
 def get_playlist_videos(playlist_id):
-    """Fetch multiple videos from a YouTube playlist and return a random working one."""
-    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=10&key={YOUTUBE_API_KEY}"
-    
+    """Fetch multiple videos from a YouTube playlist and return the first working one."""
+    url = f"https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&playlistId={playlist_id}&maxResults=5&key={YOUTUBE_API_KEY}"
+
     try:
         response = requests.get(url)
         data = response.json()
 
         if "items" in data:
-            video_ids = [item["snippet"]["resourceId"]["videoId"] for item in data["items"]]
-            random.shuffle(video_ids)  # Shuffle the list to pick a random video
-
-            for video_id in video_ids:
+            for item in data["items"]:
+                video_id = item["snippet"]["resourceId"]["videoId"]
                 video_url = f"https://www.youtube.com/watch?v={video_id}"
                 if video_url not in failed_videos:
                     return video_url
 
     except Exception as e:
         print(f"Error fetching playlist videos: {e}")
-    
+
     return None
+
 
 def extract_audio_url(video_url):
     """Extract direct audio URL using yt-dlp."""
@@ -69,15 +68,16 @@ def extract_audio_url(video_url):
             return audio_url
         else:
             print(f"yt-dlp returned empty output for {video_url}")
-    
+
     except subprocess.CalledProcessError as e:
         print(f"Failed to extract audio: {e}")
 
     failed_videos.add(video_url)
     return None
 
+
 def refresh_stream_urls():
-    """Refresh the audio URLs every 30 minutes or when expired."""
+    """Refresh the audio URLs every 3 hours to prevent looping."""
     while True:
         with cache_lock:
             for station, playlist_id in YOUTUBE_PLAYLISTS.items():
@@ -93,10 +93,11 @@ def refresh_stream_urls():
                     stream_cache[station] = audio_url  # Store only the latest video's audio URL
                     print(f"Updated cache for {station}: {audio_url}")
 
-        time.sleep(1800)  # Refresh every 30 minutes (1800 seconds)
+        time.sleep(10800)  # Refresh every 3 hours (10800 seconds)
+
 
 def generate_stream(station_name):
-    """Continuously stream audio and detect when to refresh the URL."""
+    """Continuously stream audio and refresh when looping is detected."""
     last_audio_url = None
     while True:
         with cache_lock:
@@ -120,9 +121,11 @@ def generate_stream(station_name):
         print(f"Streaming from: {stream_url}")
 
         process = subprocess.Popen(
-            ["ffmpeg", "-re", "-i", stream_url,
-             "-vn", "-acodec", "libmp3lame", "-b:a", "16k", "-ac", "1",
-             "-f", "mp3", "-"],
+            [
+                "ffmpeg", "-reconnect", "1", "-reconnect_streamed", "1",
+                "-reconnect_delay_max", "10", "-fflags", "nobuffer", "-flags", "low_delay",
+                "-i", stream_url, "-vn", "-ac", "1", "-b:a", "40k", "-buffer_size", "1024k", "-f", "mp3", "-"
+            ],
             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, bufsize=8192
         )
 
@@ -135,12 +138,14 @@ def generate_stream(station_name):
             time.sleep(5)
             continue
 
+
 @app.route("/play/<station_name>")
 def stream(station_name):
     if station_name not in YOUTUBE_PLAYLISTS:
         return jsonify({"error": "Station not found"}), 404
 
     return Response(generate_stream(station_name), mimetype="audio/mpeg")
+
 
 # Start the background refresh thread
 threading.Thread(target=refresh_stream_urls, daemon=True).start()
