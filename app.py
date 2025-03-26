@@ -11,7 +11,7 @@ STREAMS = {
 def generate_audio(youtube_url):
     # Extract direct audio URL using yt-dlp with cookies
     yt_process = subprocess.run(
-        ["yt-dlp", "--cookies", "/mnt/data/cookies.txt", "-f", "bestaudio", "-g", youtube_url],
+        ["yt-dlp", "--cookies", "/mnt/data/cookies.txt", "-f", "91", "-g", youtube_url],
         capture_output=True, text=True
     )
     audio_url = yt_process.stdout.strip()
