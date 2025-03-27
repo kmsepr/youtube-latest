@@ -17,7 +17,24 @@ STREAMS = {
         "https://youtu.be/XYVCFhRSYjE?si=PSrd62Md24m2G1U9",
         "https://youtu.be/BjZpBjN4DMw?si=fIVesuH89l-wGpVM",
         "https://youtu.be/DLL6cqkD-WA?si=qIqCpExvshN7-41r",
-        "https://youtu.be/_BGnQTHN2Jc?si=y7US_s7m2Jyl1nG9"
+        "https://youtu.be/_BGnQTHN2Jc?si=y7US_s7m2Jyl1nG9",
+
+        ##2007
+        "https://youtu.be/1Obw6v4pihE?si=RuY_3q4qoYpFRVW8",
+        "https://youtu.be/pdNLMvsFOQo?si=QhQFCO2Iahb4lf1l",
+        "https://youtu.be/HHxySeLVvpU?si=9qmgw3ds-vL_prXB",
+        "https://youtu.be/YazPkOpmym4?si=ECOlSUdCDfL2iE0o",
+        "https://youtu.be/EBFw5HruMhk?si=LbTzlwyxptqt4blp",
+        "https://youtu.be/ThFkjPypZiY?si=LF1h7AsVJI9nA_Kq",
+        "https://youtu.be/ibgpCC6xVB0?si=QqC6zJh3jmGG5zVB",
+        "https://youtu.be/vyE7z90LfQ0?si=4ltv7FzNCzJ6JbqY",
+        "https://youtu.be/HHxySeLVvpU?si=g8q33eZsEpDspTcX",
+        "https://youtu.be/chpc0Iet1aU?si=-z07bRqMedgY_oNO",
+        "https://youtu.be/z86p_R_rdL4?si=PD9Kl1zl-qZKV2EO",
+        "https://youtu.be/EBFw5HruMhk?si=InVIohRymCZrkjK1",
+        "https://youtu.be/chpc0Iet1aU?si=5LiAg0nUpDYBPQDH"
+
+
     ],
     
     "modern_history": [
