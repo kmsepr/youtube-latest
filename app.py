@@ -11,7 +11,7 @@ STREAMS = {
 def generate_audio(youtube_url):
     # Extract direct audio URL using yt-dlp with cookies
     yt_process = subprocess.run(
-        ["yt-dlp", "--cookies", "/mnt/data/cookies.txt", "-f", "91", "-g", youtube_url],
+        ["yt-dlp", "--cookies", "/mnt/data/cookies.txt", "-f", "140", "-g", youtube_url],
         capture_output=True, text=True
     )
     audio_url = yt_process.stdout.strip()
@@ -22,7 +22,7 @@ def generate_audio(youtube_url):
 
     # Stream using ffmpeg
     process = subprocess.Popen(
-        ["ffmpeg", "-re", "-i", audio_url, "-acodec", "mp3", "-b:a", "128k",
+        ["ffmpeg", "-re", "-i", audio_url, "-acodec", "mp3", "-b:a", "40k",
          "-f", "mp3", "pipe:1"],
         stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
     )
