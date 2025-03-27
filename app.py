@@ -22,10 +22,9 @@ def generate_audio(youtube_url):
 
     # Stream using ffmpeg
     process = subprocess.Popen(
-        ["ffmpeg", "-re", "-i", audio_url, "-acodec", "mp3", "-b:a", "40k",
-         "-f", "mp3", "pipe:1"],
-        stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
-    )
+    ["ffmpeg", "-re", "-i", audio_url, "-acodec", "libmp3lame", "-b:a", "40k", "-ac", "1", "-f", "mp3", "pipe:1"],
+    stdout=subprocess.PIPE, stderr=subprocess.PIPE
+)
 
     try:
         for chunk in iter(lambda: process.stdout.read(4096), b""):
