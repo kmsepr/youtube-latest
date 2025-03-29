@@ -3,12 +3,14 @@ import subprocess
 import time
 import random
 import logging
+import os
 
 app = Flask(__name__)
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 
+# Define available streams
 STREAMS = {
     "zaytuna_new": [
         "https://www.youtube.com/live/NHO6loh7WAQ?si=Enbui2ahdkp0U7Xl"
@@ -28,20 +30,25 @@ STREAMS = {
     ]
 }
 
+# Path to YouTube cookies file
+COOKIES_PATH = "/mnt/data/cookies.txt"
+
 def get_audio_url(youtube_url):
-    """Fetch fresh audio URL from YouTube using yt-dlp."""
-    try:
-        yt_process = subprocess.run(
-            ["yt-dlp", "--cookies", "/mnt/data/cookies.txt", "-f", "bestaudio", "-g", youtube_url],
-            capture_output=True, text=True
-        )
-        if yt_process.returncode != 0:
-            logging.error(f"yt-dlp failed: {yt_process.stderr}")
-            return None
-        return yt_process.stdout.strip()
-    except Exception as e:
-        logging.error(f"Error fetching audio URL: {e}")
+    """Fetch fresh audio URL from YouTube using yt-dlp with authentication."""
+    if not os.path.exists(COOKIES_PATH):
+        logging.error("Cookies file is missing! Upload a valid cookies.txt file.")
         return None
+
+    yt_process = subprocess.run(
+        ["yt-dlp", "--cookies", COOKIES_PATH, "-f", "bestaudio", "-g", youtube_url],
+        capture_output=True, text=True
+    )
+
+    if yt_process.returncode != 0:
+        logging.error(f"yt-dlp failed: {yt_process.stderr}")
+        return None
+
+    return yt_process.stdout.strip()
 
 def generate_audio(channel):
     """Continuously fetch fresh audio URLs and stream with FFmpeg."""
